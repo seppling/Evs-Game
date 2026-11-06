@@ -1,0 +1,10 @@
+const canvas = document.getElementById('game') as HTMLCanvasElement;
+canvas.width = 1280;
+canvas.height = 720;
+const ctx = canvas.getContext('2d')!;
+ctx.fillStyle = '#000';
+ctx.fillRect(0, 0, canvas.width, canvas.height);
+ctx.fillStyle = '#fff';
+ctx.font = 'bold 64px sans-serif';
+ctx.textAlign = 'center';
+ctx.fillText('Evs-Game', canvas.width / 2, canvas.height / 2);
