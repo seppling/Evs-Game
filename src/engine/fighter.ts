@@ -1,7 +1,8 @@
-import { emptyInputState, readCommand } from '../input/commands';
+import { clearPresses, emptyInputState, readCommand } from '../input/commands';
+import { normalMoveId } from '../fighters/defaults';
 import { PREJUMP_TICKS } from './constants';
 import { arcY } from './geometry';
-import type { Action, Box, Facing, FighterDef, FighterState, GameEvent, MoveFrame, PlayerIndex } from './types';
+import type { Action, Box, Facing, FighterDef, FighterState, GameEvent, MoveDef, MoveFrame, MoveId, PlayerIndex } from './types';
 
 export function createFighter(def: FighterDef, x: number, facing: Facing): FighterState {
   return {
@@ -30,6 +31,24 @@ export function currentFrame(f: FighterState, def: FighterDef): MoveFrame | null
   return null;
 }
 
+export function moveTotalTicks(m: MoveDef): number {
+  return m.frames.reduce((sum, fr) => sum + fr.ticks, 0);
+}
+
+export function activeHitbox(f: FighterState, def: FighterDef): Box | null {
+  return currentFrame(f, def)?.hitbox ?? null;
+}
+
+/** Tick at which the move's first active (hitbox) frame starts. */
+function firstActiveTick(m: MoveDef): number {
+  let start = 0;
+  for (const fr of m.frames) {
+    if (fr.hitbox) return start;
+    start += fr.ticks;
+  }
+  return -1;
+}
+
 const INVULNERABLE: ReadonlySet<Action> = new Set(['knockdown', 'down', 'getup', 'airReset', 'intro', 'win', 'lose']);
 const STANCE_HELD: ReadonlySet<Action> = new Set(['guard', 'hitstun', 'blockstun']);
 
@@ -52,6 +71,14 @@ function setAction(f: FighterState, action: Action): void {
     f.action = action;
     f.actionTick = 0;
   }
+}
+
+function startAttack(f: FighterState, moveId: MoveId): void {
+  f.action = 'attack';
+  f.moveId = moveId;
+  f.actionTick = 0;
+  f.hasHit = false;
+  clearPresses(f.input);
 }
 
 function land(f: FighterState, me: PlayerIndex, events: GameEvent[]): void {
@@ -79,6 +106,15 @@ function advance(f: FighterState, def: FighterDef, me: PlayerIndex, events: Game
       land(f, me, events);
     }
   }
+  if (f.action === 'attack' && f.moveId) {
+    const move = def.moves[f.moveId];
+    if (!move || f.actionTick >= moveTotalTicks(move)) {
+      f.moveId = null;
+      setAction(f, f.arc ? 'air' : 'idle');
+    } else if (f.actionTick === firstActiveTick(move)) {
+      events.push({ type: 'swing', player: me, strength: move.hit.strength });
+    }
+  }
   if (f.action === 'prejump' && f.actionTick >= PREJUMP_TICKS) {
     setAction(f, 'air');
     f.arc = { t: 0, duration: def.jump.duration, height: def.jump.height, startY: 0, vx: f.jumpDir * f.facing * def.jump.forwardSpeed };
@@ -89,7 +125,9 @@ function advance(f: FighterState, def: FighterDef, me: PlayerIndex, events: Game
 /** Chooses what an actionable fighter does this tick from its command. */
 function decide(f: FighterState, def: FighterDef): void {
   const cmd = readCommand(f.input, f.facing);
-  if (cmd.up) {
+  if (cmd.press) {
+    startAttack(f, normalMoveId(cmd.down ? 'crouch' : 'stand', cmd.press));
+  } else if (cmd.up) {
     setAction(f, 'prejump');
     f.jumpDir = cmd.forward ? 1 : cmd.back ? -1 : 0;
   } else if (cmd.down) {
@@ -116,5 +154,11 @@ export function updateFighter(f: FighterState, def: FighterDef, _opp: FighterSta
   if (isActionable(f)) {
     if (active) decide(f, def);
     else setAction(f, 'idle');
+  } else if (active && f.action === 'air' && !f.airAttackUsed) {
+    const press = readCommand(f.input, f.facing).press;
+    if (press) {
+      startAttack(f, normalMoveId('air', press));
+      f.airAttackUsed = true;
+    }
   }
 }
