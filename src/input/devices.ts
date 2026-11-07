@@ -62,7 +62,16 @@ const GAME_KEYS: ReadonlySet<string> = new Set([...layoutCodes(P1_KEYS), ...layo
 /** Tracks held keys by `event.code`. Releases everything on blur so no key stays stuck. */
 export class Keyboard {
   private readonly held = new Set<string>();
+  /** Keys pressed since the last takeFrame(), so a tap shorter than one frame is not lost. */
+  private readonly tapped = new Set<string>();
   get down(): ReadonlySet<string> { return this.held; }
+
+  /** Keys held now plus keys tapped since the previous call (which are then forgotten). */
+  takeFrame(): ReadonlySet<string> {
+    const frame = new Set([...this.held, ...this.tapped]);
+    this.tapped.clear();
+    return frame;
+  }
 
   constructor(private readonly target: EventTarget) {
     target.addEventListener('keydown', this.onDown);
@@ -80,13 +89,17 @@ export class Keyboard {
     const code = (e as KeyboardEvent).code;
     if (GAME_KEYS.has(code)) e.preventDefault();
     this.held.add(code);
+    this.tapped.add(code);
   };
   private readonly onUp = (e: Event) => {
     const code = (e as KeyboardEvent).code;
     if (GAME_KEYS.has(code)) e.preventDefault();
     this.held.delete(code);
   };
-  private readonly onBlur = () => this.held.clear();
+  private readonly onBlur = () => {
+    this.held.clear();
+    this.tapped.clear();
+  };
 }
 
 /** Assigns gamepads to player slots in the order they press Start, and tracks disconnects. */
@@ -133,8 +146,9 @@ export class DeviceManager {
   poll(): { inputs: [RawInput, RawInput]; startPressed: boolean; disconnected: PlayerIndex[] } {
     const pads = this.getPads();
     this.assigner.update(pads);
+    const keys = this.keyboard.takeFrame();
     const read = (i: PlayerIndex): RawInput => {
-      let r = readKeyboard(this.keyboard.down, i === 0 ? P1_KEYS : P2_KEYS);
+      let r = readKeyboard(keys, i === 0 ? P1_KEYS : P2_KEYS);
       const idx = this.assigner.slots[i];
       const p = idx !== null ? pads[idx] : null;
       if (p && p.connected) r = mergeInputs(r, readGamepad(p));

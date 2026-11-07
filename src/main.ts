@@ -1,10 +1,17 @@
+import { App } from './app/app';
+import { parseSetup } from './app/setup';
+import type { MatchState } from './engine/types';
+
+declare global {
+  interface Window { __evs?: { mode: () => string; state: () => MatchState | null } }
+}
+
 const canvas = document.getElementById('game') as HTMLCanvasElement;
-canvas.width = 1280;
-canvas.height = 720;
-const ctx = canvas.getContext('2d')!;
-ctx.fillStyle = '#000';
-ctx.fillRect(0, 0, canvas.width, canvas.height);
-ctx.fillStyle = '#fff';
-ctx.font = 'bold 64px sans-serif';
-ctx.textAlign = 'center';
-ctx.fillText('Evs-Game', canvas.width / 2, canvas.height / 2);
+const app = new App(canvas, window, parseSetup(window.location.search));
+window.__evs = { mode: () => app.mode, state: () => app.state };
+
+const loop = (now: number) => {
+  app.frame(now);
+  requestAnimationFrame(loop);
+};
+requestAnimationFrame(loop);

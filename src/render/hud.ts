@@ -39,6 +39,7 @@ const BAR = { w: 500, h: 28, y: 40, p1x: 60, p2x: 720 };
 function outlinedText(ctx: CanvasRenderingContext2D, text: string, x: number, y: number, size: number): void {
   ctx.font = `bold ${size}px system-ui, sans-serif`;
   ctx.lineWidth = Math.max(3, size / 12);
+  ctx.lineJoin = 'round';
   ctx.strokeStyle = '#000';
   ctx.fillStyle = '#fff';
   ctx.strokeText(text, x, y);

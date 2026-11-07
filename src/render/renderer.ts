@@ -157,6 +157,7 @@ export class Renderer {
     ctx.fillStyle = '#ffd54f';
     ctx.strokeStyle = '#000';
     ctx.lineWidth = 8;
+    ctx.lineJoin = 'round';
     ctx.font = 'bold 132px system-ui, sans-serif';
     ctx.strokeText('EVS-GAME', 640, 230);
     ctx.fillText('EVS-GAME', 640, 230);

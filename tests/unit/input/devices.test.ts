@@ -66,3 +66,15 @@ test('DeviceManager gives each player their keyboard layout plus their pad', () 
   const { inputs } = d.poll();
   expect(inputs[0]).toMatchObject({ buttons: btn('LP') }); expect(inputs[1]).toMatchObject({ x: -1 });
 });
+test('a key tapped between two polls still registers for exactly one poll', () => {
+  const t = new EventTarget(); const d = new DeviceManager(t, () => []);
+  d.poll();
+  t.dispatchEvent(key('keydown', 'Enter')); t.dispatchEvent(key('keyup', 'Enter'));
+  t.dispatchEvent(key('keydown', 'KeyU')); t.dispatchEvent(key('keyup', 'KeyU'));
+  const first = d.poll();
+  expect(first.startPressed).toBe(true);
+  expect(first.inputs[0].buttons).toBe(btn('LP'));
+  const second = d.poll();
+  expect(second.startPressed).toBe(false);
+  expect(second.inputs[0].buttons).toBe(0);
+});
