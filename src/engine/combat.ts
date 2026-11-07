@@ -2,6 +2,7 @@ import { readCommand } from '../input/commands';
 import { AIR_RESET, CANCEL_WINDOW_TICKS, CHIP_PERCENT, EASY_DAMAGE_PERCENT, KNOCKDOWN, METER_GAIN, METER_MAX, PUSHBACK_TICKS, SUB } from './constants';
 import { activeHit, currentFrame, hurtboxes, setAction } from './fighter';
 import { overlapCenter, overlaps, worldBox } from './geometry';
+import { addStun } from './stun';
 import type { World } from './tick';
 import type { Defs, Facing, FighterDef, FighterState, GameEvent, HitLevel, HitProps, MoveDef, MoveKind, PlayerIndex } from './types';
 
@@ -117,6 +118,7 @@ export function applyContact(w: World, defs: Defs, c: Contact, events: GameEvent
   d.comboDamage += damage;
   gainMeter(a, attackerMeter(c.kind, hit, false));
   gainMeter(d, takenMeter(damage));
+  addStun(d, defs[di], hit.stun);
   events.push({ type: 'hit', attacker: c.att, strength: hit.strength, x: c.at.x, y: c.at.y, damage });
   if (d.health <= 0) {
     d.health = 0;

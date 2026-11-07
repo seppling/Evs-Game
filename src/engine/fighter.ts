@@ -4,6 +4,7 @@ import { KNOCKDOWN, METER_GAIN, METER_MAX, PREJUMP_TICKS, PROXIMITY_GUARD_RANGE,
 import { arcY } from './geometry';
 import { resolveIntent, type Intent } from './intent';
 import { hasProjectile, spawnProjectile } from './projectiles';
+import { drainStun, mashDizzy, maybeEnterDizzy } from './stun';
 import { inThrowRange, throwable } from './throws';
 import type { World } from './tick';
 import type { Action, Box, Facing, FighterDef, FighterState, GameEvent, HitProps, MoveDef, MoveFrame, MoveId, MoveKind, PlayerIndex } from './types';
@@ -221,13 +222,20 @@ function advance(f: FighterState, def: FighterDef, me: PlayerIndex, events: Game
     if (f.stunTicks <= 0) {
       f.stunTicks = 0;
       if (f.action !== 'landing') f.throwProtect = THROW_PROTECT_TICKS;
+      if (!(f.action === 'hitstun' && maybeEnterDizzy(f, me, events))) setAction(f, 'idle');
+    }
+  } else if (f.action === 'dizzy') {
+    f.stunTicks--;
+    mashDizzy(f);
+    if (f.stunTicks <= 0) {
+      f.stunTicks = 0;
       setAction(f, 'idle');
     }
   } else if (f.action === 'down' && !f.ko && f.actionTick >= KNOCKDOWN.lieTicks) {
     setAction(f, 'getup');
   } else if (f.action === 'getup' && f.actionTick >= KNOCKDOWN.getupTicks) {
     f.throwProtect = THROW_PROTECT_TICKS;
-    setAction(f, 'idle');
+    if (!maybeEnterDizzy(f, me, events)) setAction(f, 'idle');
   }
   if (f.action === 'prejump' && f.actionTick >= PREJUMP_TICKS) {
     setAction(f, 'air');
@@ -266,6 +274,7 @@ function decide(f: FighterState, def: FighterDef, opp: FighterState, oppDef: Fig
 export function updateFighter(f: FighterState, def: FighterDef, opp: FighterState, oppDef: FighterDef,
   me: PlayerIndex, active: boolean, events: GameEvent[], w: World): void {
   if (f.throwProtect > 0) f.throwProtect--;
+  drainStun(f);
   if (f.hitstop > 0) {
     f.hitstop--;
     return;
