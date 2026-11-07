@@ -1,0 +1,243 @@
+<title>{{FIGHTER}} Frames</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bungee&family=IBM+Plex+Mono:wght@500&family=IBM+Plex+Sans:wght@400;600&display=swap">
+<style>
+  /* Layout: a sticky score bar over a contact sheet of frame cards, grouped the way the art brief lists them */
+  :root {
+    --bg: #eceff3; --surface: #ffffff; --ink: #15181e; --muted: #59606d; --line: #d3d8e0;
+    --accent: #c92f28; --ok: #1d7f47; --redo: #b5651a; --check-a: #e1e5eb; --check-b: #f6f7f9;
+    --display: "Bungee", "Arial Black", system-ui, sans-serif;
+    --body: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+    --mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #111318; --surface: #1a1d24; --ink: #eceef2; --muted: #9ba2ae; --line: #2b303a;
+      --accent: #ff5d52; --ok: #44c27a; --redo: #f0a33c; --check-a: #262a33; --check-b: #1c1f27; color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #111318; --surface: #1a1d24; --ink: #eceef2; --muted: #9ba2ae; --line: #2b303a;
+    --accent: #ff5d52; --ok: #44c27a; --redo: #f0a33c; --check-a: #262a33; --check-b: #1c1f27; color-scheme: dark;
+  }
+  body { background: var(--bg); color: var(--ink); font: 15px/1.5 var(--body); }
+  body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--surface); }
+  .wrap { padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); max-width: 1280px; margin: 0 auto; }
+  header { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; background: var(--surface); border-bottom: 1px solid var(--line); }
+  header .wrap { padding-block: 12px; display: flex; flex-wrap: wrap; align-items: center; gap: 10px 20px; }
+  h1 { font: 400 26px/1.1 var(--display); margin: 0; letter-spacing: .01em; color: var(--accent); text-wrap: balance; }
+  .score { display: flex; gap: 14px; font-variant-numeric: tabular-nums; color: var(--muted); font-size: 14px; }
+  .score b { color: var(--ink); }
+  .bar { flex: 1 1 160px; height: 8px; border-radius: 4px; background: var(--check-a); overflow: hidden; display: flex; }
+  .bar i { display: block; height: 100%; }
+  .filters, .actions { display: flex; flex-wrap: wrap; gap: 6px; }
+  button { font: 600 13px var(--body); color: var(--ink); background: var(--surface); border: 1px solid var(--line); border-radius: 6px; padding: 6px 12px; cursor: pointer; }
+  button:hover { border-color: var(--muted); }
+  button:focus-visible, textarea:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  button[aria-pressed="true"] { background: var(--ink); color: var(--surface); border-color: var(--ink); }
+  button.approve[aria-pressed="true"] { background: var(--ok); border-color: var(--ok); color: #fff; }
+  button.redo[aria-pressed="true"] { background: var(--redo); border-color: var(--redo); color: #fff; }
+  button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  button:disabled { opacity: .5; cursor: default; }
+  main .wrap { padding-block: 20px 48px; display: grid; gap: 28px; }
+  h2 { font: 600 13px var(--body); text-transform: uppercase; letter-spacing: .08em; color: var(--muted); margin: 0 0 10px; }
+  .note-line { color: var(--muted); max-width: 65ch; margin: 0 0 12px; }
+  .grid { display: grid; gap: 12px; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); }
+  .refs { grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); }
+  .card { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; overflow: hidden; display: grid; grid-template-rows: auto auto; min-width: 0; }
+  .card.chosen { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent); }
+  .card[data-status="approved"] { border-top: 4px solid var(--ok); }
+  .card[data-status="redo"] { border-top: 4px solid var(--redo); }
+  .shot { aspect-ratio: 1; max-width: 100%; background: repeating-conic-gradient(var(--check-a) 0 25%, var(--check-b) 0 50%) 0 0 / 20px 20px; display: grid; place-items: center; }
+  .refs .shot { aspect-ratio: 3 / 2; }
+  .shot img { width: 100%; height: 100%; object-fit: contain; }
+  .meta { padding: 10px; display: grid; gap: 8px; min-width: 0; }
+  .file { font: 500 13px var(--mono); overflow-wrap: anywhere; display: flex; justify-content: space-between; gap: 6px; align-items: baseline; }
+  .chip { font: 600 11px var(--body); text-transform: uppercase; letter-spacing: .06em; color: var(--muted); white-space: nowrap; }
+  .chip.approved { color: var(--ok); } .chip.redo { color: var(--redo); }
+  .row { display: flex; gap: 6px; } .row button { flex: 1; }
+  textarea { font: 13px/1.4 var(--body); color: var(--ink); background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px; resize: vertical; min-height: 2.4em; width: 100%; box-sizing: border-box; }
+  .empty { background: var(--surface); border: 1px dashed var(--line); border-radius: 8px; padding: 24px; color: var(--muted); max-width: 65ch; }
+  .confirm { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; color: var(--muted); font-size: 13px; }
+  #toast { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(16px + env(safe-area-inset-bottom, 0px)); background: var(--ink); color: var(--surface); padding: 8px 14px; border-radius: 6px; font-size: 14px; z-index: 20; }
+  @media (prefers-reduced-motion: no-preference) { .bar i { transition: width .3s ease; } }
+</style>
+
+<header>
+  <div class="wrap">
+    <h1 id="title">{{FIGHTER}}</h1>
+    <div class="score" id="score"><span><b>0</b> approved</span><span><b>0</b> to redo</span><span><b>0</b> to review</span></div>
+    <div class="bar" id="bar" aria-hidden="true"></div>
+    <div class="filters" id="filters" role="group" aria-label="Show">
+      <button data-filter="all" aria-pressed="true">All</button>
+      <button data-filter="pending" aria-pressed="false">Needs review</button>
+      <button data-filter="redo" aria-pressed="false">Redo</button>
+      <button data-filter="approved" aria-pressed="false">Approved</button>
+    </div>
+    <div class="actions" id="approveAllBox">
+      <button id="approveAll" class="primary">Approve all pending</button>
+    </div>
+  </div>
+</header>
+
+<main>
+  <div class="wrap">
+    <section aria-labelledby="refsTitle">
+      <h2 id="refsTitle">Reference sheet</h2>
+      <p class="note-line">Pick the drawing every frame should copy. Claude attaches it to each frame request.</p>
+      <div class="grid refs" id="refs"></div>
+    </section>
+    <section aria-labelledby="framesTitle">
+      <h2 id="framesTitle">Frames</h2>
+      <div id="frames"></div>
+    </section>
+  </div>
+</main>
+<div id="toast" role="status" hidden></div>
+
+<script>
+(() => {
+  const state = { frames: [], refs: [], choice: null, meta: null, filter: 'all', db: null, phase: 'loading', confirming: false };
+  const el = (tag, attrs = {}, ...kids) => {
+    const n = document.createElement(tag);
+    for (const [k, v] of Object.entries(attrs)) {
+      if (k === 'text') n.textContent = v; else if (k.startsWith('on')) n.addEventListener(k.slice(2), v); else n.setAttribute(k, v);
+    }
+    for (const k of kids) if (k) n.append(k);
+    return n;
+  };
+  let toastTimer = 0;
+  const toast = (msg) => {
+    const t = document.getElementById('toast'); t.textContent = msg; t.hidden = false;
+    clearTimeout(toastTimer); toastTimer = setTimeout(() => { t.hidden = true; }, 2600);
+  };
+  const save = async (path, data) => {
+    if (!state.db) return toast('Open this page signed in to claude.ai to save choices.');
+    try { await state.db.doc(path).update(data); } catch (e) {
+      toast(e && e.code === 'not_granted' ? 'You can view this page but not change it.' : 'That choice did not save. Try again in a moment.');
+    }
+  };
+
+  function renderScore() {
+    const counts = { approved: 0, redo: 0, pending: 0 };
+    for (const f of state.frames) counts[f.status in counts ? f.status : 'pending']++;
+    const total = state.frames.length || 1;
+    const s = document.getElementById('score');
+    s.replaceChildren(
+      el('span', {}, el('b', { text: String(counts.approved) }), ' approved'),
+      el('span', {}, el('b', { text: String(counts.redo) }), ' to redo'),
+      el('span', {}, el('b', { text: String(counts.pending) }), ' to review'),
+      el('span', { text: `of ${state.frames.length}` }));
+    const bar = document.getElementById('bar');
+    bar.replaceChildren(
+      el('i', { style: `width:${(100 * counts.approved) / total}%;background:var(--ok)` }),
+      el('i', { style: `width:${(100 * counts.redo) / total}%;background:var(--redo)` }));
+    const box = document.getElementById('approveAllBox');
+    if (state.confirming) {
+      box.replaceChildren(el('span', { class: 'confirm' }, `Approve ${counts.pending} frames?`,
+        el('button', { class: 'primary', onclick: approveAll }, 'Yes, approve'),
+        el('button', { onclick: () => { state.confirming = false; render(); } }, 'Cancel')));
+    } else {
+      const b = el('button', { class: 'primary', onclick: () => { state.confirming = true; render(); } }, 'Approve all pending');
+      if (!counts.pending) b.disabled = true;
+      box.replaceChildren(b);
+    }
+  }
+
+  function renderRefs() {
+    const box = document.getElementById('refs');
+    if (!state.refs.length) {
+      box.replaceChildren(el('div', { class: 'empty', text: 'Reference sheets appear here once Claude has drawn them. You will pick one before any frames are made.' }));
+      return;
+    }
+    box.replaceChildren(...state.refs.map((r) => {
+      const chosen = state.choice === r.id;
+      return el('div', { class: `card${chosen ? ' chosen' : ''}` },
+        el('div', { class: 'shot' }, el('img', { src: r.url, alt: `${r.label} reference sheet`, loading: 'lazy' })),
+        el('div', { class: 'meta' },
+          el('div', { class: 'file' }, el('span', { text: r.label }), chosen ? el('span', { class: 'chip approved', text: 'chosen' }) : null),
+          el('button', { class: chosen ? 'approve' : '', 'aria-pressed': String(chosen), onclick: () => chooseRef(r.id) }, chosen ? 'Using this one' : 'Use this one')));
+    }));
+  }
+
+  function frameCard(f) {
+    const status = f.status === 'approved' || f.status === 'redo' ? f.status : 'pending';
+    const note = el('textarea', { id: `note-${f.id}`, rows: '2', placeholder: 'Note for a redo (optional)', 'aria-label': `Note for ${f.id}` });
+    note.value = f.note || '';
+    note.addEventListener('change', () => { if (note.value !== (f.note || '')) save(`frames/${f.id}`, { note: note.value }); });
+    return el('div', { class: 'card', 'data-status': status },
+      el('div', { class: 'shot' }, f.url ? el('img', { src: f.url, alt: f.id, loading: 'lazy' }) : null),
+      el('div', { class: 'meta' },
+        el('div', { class: 'file' }, el('span', { text: f.id }), el('span', { class: `chip ${status}`, text: status === 'pending' ? 'to review' : status })),
+        el('div', { class: 'row' },
+          el('button', { class: 'approve', 'aria-pressed': String(status === 'approved'), onclick: () => save(`frames/${f.id}`, { status: 'approved' }) }, 'Approve'),
+          el('button', { class: 'redo', 'aria-pressed': String(status === 'redo'), onclick: () => save(`frames/${f.id}`, { status: 'redo' }) }, 'Redo')),
+        note));
+  }
+
+  function renderFrames() {
+    const box = document.getElementById('frames');
+    if (state.phase === 'nodb') {
+      box.replaceChildren(el('div', { class: 'empty', text: 'This page needs to be opened on claude.ai while signed in. The frames and your choices live there.' }));
+      return;
+    }
+    if (state.phase === 'loading') { box.replaceChildren(el('div', { class: 'empty', text: 'Loading frames…' })); return; }
+    if (state.phase === 'slow' && !state.frames.length) {
+      box.replaceChildren(el('div', { class: 'empty', text: 'The frames are taking a while to load. Check your connection; this page will fill in as soon as they arrive.' }));
+      return;
+    }
+    const shown = state.frames.filter((f) => state.filter === 'all' || (f.status || 'pending') === state.filter);
+    if (!state.frames.length) {
+      box.replaceChildren(el('div', { class: 'empty', text: 'No frames yet. After the pilot and each batch of 25, Claude adds the new frames here for you to approve or send back for a redo.' }));
+      return;
+    }
+    if (!shown.length) { box.replaceChildren(el('div', { class: 'empty', text: 'Nothing in this view.' })); return; }
+    const groups = new Map();
+    for (const f of shown) { const g = f.group || 'Frames'; if (!groups.has(g)) groups.set(g, []); groups.get(g).push(f); }
+    box.replaceChildren(...[...groups].map(([g, list]) =>
+      el('section', {}, el('h2', { text: `${g} · ${list.length}` }), el('div', { class: 'grid' }, ...list.map(frameCard)))));
+  }
+
+  function render() {
+    if (state.meta && state.meta.name) {
+      document.getElementById('title').textContent = state.meta.name;
+      document.title = `${state.meta.name} Frames`;
+    }
+    for (const b of document.querySelectorAll('#filters button')) b.setAttribute('aria-pressed', String(b.dataset.filter === state.filter));
+    renderScore(); renderRefs(); renderFrames();
+  }
+
+  async function approveAll() {
+    state.confirming = false;
+    const pending = state.frames.filter((f) => (f.status || 'pending') === 'pending');
+    render();
+    for (const f of pending) await save(`frames/${f.id}`, { status: 'approved' });
+    toast(`Approved ${pending.length} frames.`);
+  }
+
+  async function chooseRef(id) {
+    if (!state.db) return toast('Open this page signed in to claude.ai to save choices.');
+    try { await state.db.doc('choice/reference').set({ id }); toast('Reference chosen. Tell Claude to start the pilot.'); }
+    catch { toast('That choice did not save. Try again in a moment.'); }
+  }
+
+  document.getElementById('filters').addEventListener('click', (e) => {
+    const b = e.target.closest('button[data-filter]'); if (!b) return;
+    state.filter = b.dataset.filter; render();
+  });
+
+  render();
+  (async () => {
+    const db = window.claude && window.claude.use ? await window.claude.use('db') : null;
+    if (!db) { state.phase = 'nodb'; render(); return; }
+    state.db = db;
+    const slow = setTimeout(() => { if (state.phase === 'loading') { state.phase = 'slow'; render(); } }, 10000);
+    const fail = () => { clearTimeout(slow); state.phase = 'slow'; render(); };
+    const rows = (snap) => snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+    db.collection('frames').orderBy('order').onSnapshot((snap) => { clearTimeout(slow); state.frames = rows(snap); state.phase = 'ready'; render(); }, fail);
+    db.collection('references').orderBy('order').onSnapshot((snap) => { state.refs = rows(snap); render(); }, () => {});
+    db.doc('choice/reference').onSnapshot((snap) => { state.choice = snap.exists ? snap.data().id : null; render(); }, () => {});
+    db.doc('meta/info').onSnapshot((snap) => { state.meta = snap.exists ? snap.data() : null; render(); }, () => {});
+  })();
+})();
+</script>
