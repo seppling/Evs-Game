@@ -153,8 +153,29 @@ function intentFor(f: FighterState, def: FighterDef, opp: FighterState, oppDef: 
   stance: 'stand' | 'crouch' | 'air'): Intent | null {
   return resolveIntent(f.input, {
     def, stance, meter: f.meter, hasProjectile: hasProjectile(w, me),
-    easy: w.easy[me], throwInRange: inThrowRange(f, opp) && throwable(opp, oppDef),
+    easy: w.easy[me], throwInRange: inThrowRange(f, opp) && throwable(opp, oppDef), facing: f.facing,
   });
+}
+
+/**
+ * Two-button inputs one tick apart: a normal (or Easy special) that just started from the first button
+ * is replaced by a throw or an Easy super when the second button completes the chord.
+ */
+function chordReplacement(f: FighterState, def: FighterDef, opp: FighterState, oppDef: FighterDef, me: PlayerIndex, w: World): Intent | null {
+  if (f.action !== 'attack' || !f.moveId || f.arc || f.input.consumed.length === 0 || f.input.presses.length === 0) return null;
+  const cur = def.moves[f.moveId];
+  if (!cur || !(cur.kind === 'normal' || (cur.kind === 'special' && f.easyMove))) return null;
+  // Startup ends at the first frame that can hit (a hitbox, or the frame that throws a projectile).
+  const first = cur.frames.findIndex((fr) => fr.hitbox || fr.spawnProjectile);
+  const startup = cur.frames.slice(0, first < 0 ? cur.frames.length : first).reduce((t, fr) => t + fr.ticks, 0);
+  if (f.actionTick >= startup) return null;
+  const merged = { ...f.input, presses: [...f.input.presses, ...f.input.consumed] };
+  const intent = resolveIntent(merged, {
+    def, stance: cur.input.stance === 'crouch' ? 'crouch' : 'stand', meter: f.meter, hasProjectile: hasProjectile(w, me),
+    easy: w.easy[me], throwInRange: inThrowRange(f, opp) && throwable(opp, oppDef), facing: f.facing,
+  });
+  if (intent?.type === 'throw' || (intent?.type === 'move' && intent.moveId === 'super' && intent.easy)) return intent;
+  return null;
 }
 
 /** May the move in progress be cancelled into `next` right now? */
@@ -178,7 +199,7 @@ function land(f: FighterState, def: FighterDef, me: PlayerIndex, events: GameEve
     f.airAttackUsed = false;
     events.push({ type: 'land', player: me });
   } else if (f.action === 'airReset') {
-    setAction(f, 'idle');
+    if (!maybeEnterDizzy(f, me, events)) setAction(f, 'idle');
   } else if (f.action === 'knockdown') {
     setAction(f, 'down');
   }
@@ -278,6 +299,13 @@ export function updateFighter(f: FighterState, def: FighterDef, opp: FighterStat
   if (f.hitstop > 0) {
     f.hitstop--;
     return;
+  }
+  if (active) {
+    const chord = chordReplacement(f, def, opp, oppDef, me, w);
+    if (chord) {
+      startIntent(f, def, chord, me, events);
+      return;
+    }
   }
   // Cancels and chains: for a few ticks after a move connects (hit or block), a special, super or light chain can interrupt it.
   if (active && f.action === 'attack' && f.hasHit && f.cancelTicks > 0 && f.moveId) {

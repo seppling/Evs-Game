@@ -46,7 +46,10 @@ export function resolveThrows(w: World, defs: Defs, events: GameEvent[]): void {
     return isThrowMove(f) && f.hitstop === 0 && f.actionTick === THROW.startup
       && inThrowRange(f, fs[1 - i]!) && throwable(fs[1 - i]!, defs[1 - i]!);
   });
-  if (grabbers.length === 2) {
+  // A throw that is still starting up when the opponent's grab arrives also counts as simultaneous:
+  // pressing throw a split second late breaks the throw instead of always losing.
+  const lateThrow = grabbers.length === 1 && isThrowMove(fs[1 - grabbers[0]!]!) && fs[1 - grabbers[0]!]!.actionTick < THROW.startup;
+  if (grabbers.length === 2 || lateThrow) {
     breakApart(fs);
     events.push({ type: 'throwEscape', player: 0 }, { type: 'throwEscape', player: 1 });
   } else if (grabbers.length === 1) {
