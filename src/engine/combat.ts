@@ -1,8 +1,8 @@
 import { readCommand } from '../input/commands';
-import { AIR_RESET, KNOCKDOWN, PUSHBACK_TICKS, SUB } from './constants';
-import { activeHitbox, hurtboxes, setAction } from './fighter';
+import { AIR_RESET, CANCEL_WINDOW_TICKS, KNOCKDOWN, PUSHBACK_TICKS, SUB } from './constants';
+import { activeHit, hurtboxes, setAction } from './fighter';
 import { overlapCenter, overlaps, worldBox } from './geometry';
-import type { Defs, Facing, FighterState, GameEvent, HitLevel, MoveDef, PlayerIndex } from './types';
+import type { Defs, Facing, FighterState, GameEvent, HitLevel, HitProps, MoveDef, MoveKind, PlayerIndex } from './types';
 
 const BLOCKABLE = new Set(['idle', 'walkForward', 'walkBack', 'crouch', 'guard', 'blockstun']);
 
@@ -31,12 +31,14 @@ function wasCrouching(d: FighterState, defenderMove: MoveDef | undefined): boole
   return d.action === 'crouch' || d.crouching || (d.action === 'attack' && defenderMove?.input.stance === 'crouch');
 }
 
-interface Contact { att: PlayerIndex; move: MoveDef; at: { x: number; y: number } }
+interface Contact { att: PlayerIndex; hit: HitProps; kind: MoveKind; group: number; at: { x: number; y: number } }
 
 function apply(fs: [FighterState, FighterState], defs: Defs, c: Contact, events: GameEvent[]): void {
   const a = fs[c.att], di = (1 - c.att) as PlayerIndex, d = fs[di];
-  const hit = c.move.hit;
+  const hit = c.hit;
   a.hasHit = true;
+  a.hitGroups |= 1 << c.group;
+  a.cancelTicks = CANCEL_WINDOW_TICKS;
   a.hitstop = hit.hitstop;
   d.hitstop = hit.hitstop;
   const away: Facing = Math.sign(d.x - a.x) === -1 ? -1 : Math.sign(d.x - a.x) === 1 ? 1 : a.facing;
@@ -84,15 +86,14 @@ export function resolveHits(fs: [FighterState, FighterState], defs: Defs, events
   const contacts: Contact[] = [];
   for (const i of [0, 1] as const) {
     const a = fs[i], d = fs[1 - i]!;
-    if (a.hasHit || a.hitstop > 0 || !a.moveId) continue;
-    const hb = activeHitbox(a, defs[i]);
-    const move = defs[i].moves[a.moveId];
-    if (!hb || !move) continue;
-    const W = worldBox(hb, a.x, a.y, a.facing);
+    if (a.hitstop > 0 || !a.moveId) continue;
+    const ah = activeHit(a, defs[i]);
+    if (!ah || (a.hitGroups & (1 << ah.group)) !== 0) continue;
+    const W = worldBox(ah.box, a.x, a.y, a.facing);
     for (const box of hurtboxes(d, defs[1 - i]!)) {
       const H = worldBox(box, d.x, d.y, d.facing);
       if (overlaps(W, H)) {
-        contacts.push({ att: i, move, at: overlapCenter(W, H) });
+        contacts.push({ att: i, hit: ah.hit, kind: ah.kind, group: ah.group, at: overlapCenter(W, H) });
         break;
       }
     }

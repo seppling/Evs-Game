@@ -1,8 +1,10 @@
 import { clearPresses, emptyInputState, readCommand } from '../input/commands';
-import { normalMoveId } from './moves';
-import { KNOCKDOWN, PREJUMP_TICKS, PROXIMITY_GUARD_RANGE, SUB } from './constants';
+import { effectiveHit } from './moves';
+import { KNOCKDOWN, METER_GAIN, METER_MAX, PREJUMP_TICKS, PROXIMITY_GUARD_RANGE, SUB } from './constants';
 import { arcY } from './geometry';
-import type { Action, Box, Facing, FighterDef, FighterState, GameEvent, MoveDef, MoveFrame, MoveId, PlayerIndex } from './types';
+import { resolveIntent, type Intent } from './intent';
+import type { World } from './tick';
+import type { Action, Box, Facing, FighterDef, FighterState, GameEvent, HitProps, MoveDef, MoveFrame, MoveId, MoveKind, PlayerIndex } from './types';
 
 export function createFighter(def: FighterDef, x: number, facing: Facing): FighterState {
   return {
@@ -41,6 +43,24 @@ export function activeHitbox(f: FighterState, def: FighterDef): Box | null {
   return currentFrame(f, def)?.hitbox ?? null;
 }
 
+/** The current hitbox with its hit group and effective hit properties, for combat. */
+export function activeHit(f: FighterState, def: FighterDef): { box: Box; group: number; hit: HitProps; kind: MoveKind } | null {
+  const frame = currentFrame(f, def);
+  const move = f.moveId ? def.moves[f.moveId] : undefined;
+  if (!frame?.hitbox || !move) return null;
+  return { box: frame.hitbox, group: frame.hitGroup ?? 0, hit: effectiveHit(move, frame), kind: move.kind };
+}
+
+/** Index and start tick of the frame the fighter is in. */
+function frameAt(move: MoveDef, tick: number): { frame: MoveFrame; start: number } | null {
+  let start = 0;
+  for (const frame of move.frames) {
+    if (tick < start + frame.ticks) return { frame, start };
+    start += frame.ticks;
+  }
+  return null;
+}
+
 /** Tick at which the move's first active (hitbox) frame starts. */
 function firstActiveTick(m: MoveDef): number {
   let start = 0;
@@ -53,6 +73,7 @@ function firstActiveTick(m: MoveDef): number {
 
 const INVULNERABLE: ReadonlySet<Action> = new Set(['knockdown', 'down', 'getup', 'airReset', 'intro', 'win', 'lose']);
 const STANCE_HELD: ReadonlySet<Action> = new Set(['guard', 'hitstun', 'blockstun']);
+const TIMED: ReadonlySet<Action> = new Set(['hitstun', 'blockstun', 'landing']);
 
 export function hurtboxes(f: FighterState, def: FighterDef): Box[] {
   if (INVULNERABLE.has(f.action)) return [];
@@ -90,16 +111,63 @@ function attackIsThreatening(opp: FighterState, oppDef: FighterDef): boolean {
   return opp.actionTick < lastHitboxEnd;
 }
 
-function startAttack(f: FighterState, moveId: MoveId): void {
+/** Starts a move. A super spends the full meter and announces itself. */
+export function startMove(f: FighterState, def: FighterDef, moveId: MoveId, easy: boolean, me: PlayerIndex, events: GameEvent[]): void {
+  setAction(f, 'attack');
   f.action = 'attack';
   f.moveId = moveId;
   f.actionTick = 0;
   f.hasHit = false;
+  f.hitGroups = 0;
+  f.cancelTicks = 0;
+  f.easyMove = easy;
   clearPresses(f.input);
+  const move = def.moves[moveId];
+  if (move?.kind === 'super') {
+    f.meter = Math.max(0, f.meter - METER_MAX);
+    events.push({ type: 'superFlash', player: me, name: move.name });
+  }
 }
 
-function land(f: FighterState, me: PlayerIndex, events: GameEvent[]): void {
-  if (f.action === 'air' || f.action === 'attack') {
+function gainMeter(f: FighterState, amount: number): void {
+  f.meter = Math.min(METER_MAX, f.meter + amount);
+}
+
+/** A special that ends without ever connecting still earns a little meter. */
+function endMove(f: FighterState, def: FighterDef): void {
+  const move = f.moveId ? def.moves[f.moveId] : undefined;
+  if (move?.kind === 'special' && !f.hasHit) gainMeter(f, METER_GAIN.specialWhiff);
+  f.moveId = null;
+}
+
+function startIntent(f: FighterState, def: FighterDef, intent: Intent, me: PlayerIndex, events: GameEvent[]): void {
+  if (intent.type === 'throw') startMove(f, def, intent.back ? 'throw-back' : 'throw-forward', false, me, events);
+  else startMove(f, def, intent.moveId, intent.easy, me, events);
+}
+
+function intentFor(f: FighterState, def: FighterDef, me: PlayerIndex, w: World, stance: 'stand' | 'crouch' | 'air'): Intent | null {
+  return resolveIntent(f.input, {
+    def, stance, meter: f.meter, hasProjectile: w.projectiles.some((p) => p.owner === me),
+    easy: w.easy[me], throwInRange: false,
+  });
+}
+
+/** May the move in progress be cancelled into `next` right now? */
+function cancelAllowed(cur: MoveDef, next: MoveDef): boolean {
+  if (next.kind === 'special') return cur.cancels.includes('special');
+  if (next.kind === 'super') return cur.cancels.includes('super');
+  return next.kind === 'normal' && next.hit.strength === 'light' && cur.kind === 'normal'
+    && cur.hit.strength === 'light' && cur.cancels.includes('chain');
+}
+
+function land(f: FighterState, def: FighterDef, me: PlayerIndex, events: GameEvent[]): void {
+  const move = f.action === 'attack' && f.moveId ? def.moves[f.moveId] : undefined;
+  if (move?.landing !== undefined) {
+    endMove(f, def);
+    setAction(f, 'landing');
+    f.stunTicks = move.landing;
+  } else if (f.action === 'air' || f.action === 'attack') {
+    if (f.action === 'attack') endMove(f, def);
     setAction(f, 'idle');
     f.moveId = null;
     f.airAttackUsed = false;
@@ -123,19 +191,25 @@ function advance(f: FighterState, def: FighterDef, me: PlayerIndex, events: Game
     if (arc.t >= arc.duration) {
       f.y = 0;
       f.arc = null;
-      land(f, me, events);
+      land(f, def, me, events);
     }
   }
   if (f.action === 'attack' && f.moveId) {
     const move = def.moves[f.moveId];
-    if (!move || f.actionTick >= moveTotalTicks(move)) {
-      f.moveId = null;
+    const at = move ? frameAt(move, f.actionTick) : null;
+    if (!move || !at) {
+      endMove(f, def);
       setAction(f, f.arc ? 'air' : 'idle');
-    } else if (f.actionTick === firstActiveTick(move)) {
-      events.push({ type: 'swing', player: me, strength: move.hit.strength });
+    } else {
+      if (f.actionTick === firstActiveTick(move)) events.push({ type: 'swing', player: me, strength: move.hit.strength });
+      if (f.actionTick === at.start && at.frame.leap) {
+        const { height, duration, forward } = at.frame.leap;
+        f.arc = { t: 0, duration, height, startY: f.y, vx: forward * f.facing || 0 };
+      }
+      if (at.frame.velocity) f.x += at.frame.velocity.x * f.facing;
     }
   }
-  if (f.action === 'hitstun' || f.action === 'blockstun') {
+  if (TIMED.has(f.action)) {
     f.stunTicks--;
     if (f.stunTicks <= 0) {
       f.stunTicks = 0;
@@ -154,11 +228,12 @@ function advance(f: FighterState, def: FighterDef, me: PlayerIndex, events: Game
 }
 
 /** Chooses what an actionable fighter does this tick from its command. */
-function decide(f: FighterState, def: FighterDef, opp: FighterState, oppDef: FighterDef): void {
+function decide(f: FighterState, def: FighterDef, opp: FighterState, oppDef: FighterDef, me: PlayerIndex, events: GameEvent[], w: World): void {
   const cmd = readCommand(f.input, f.facing);
   const threatened = cmd.back && attackIsThreatening(opp, oppDef) && Math.abs(opp.x - f.x) <= PROXIMITY_GUARD_RANGE * SUB;
-  if (cmd.press) {
-    startAttack(f, normalMoveId(cmd.down ? 'crouch' : 'stand', cmd.press));
+  const intent = intentFor(f, def, me, w, cmd.down ? 'crouch' : 'stand');
+  if (intent) {
+    startIntent(f, def, intent, me, events);
   } else if (cmd.up) {
     setAction(f, 'prejump');
     f.jumpDir = cmd.forward ? 1 : cmd.back ? -1 : 0;
@@ -180,22 +255,33 @@ function decide(f: FighterState, def: FighterDef, opp: FighterState, oppDef: Fig
 
 /** One tick for one fighter. `active` false means inputs are ignored (intro, KO, round end). */
 export function updateFighter(f: FighterState, def: FighterDef, opp: FighterState, oppDef: FighterDef,
-  me: PlayerIndex, active: boolean, events: GameEvent[]): void {
+  me: PlayerIndex, active: boolean, events: GameEvent[], w: World): void {
   if (f.hitstop > 0) {
     f.hitstop--;
     return;
+  }
+  // Cancels and chains: for a few ticks after a move connects (hit or block), a special, super or light chain can interrupt it.
+  if (active && f.action === 'attack' && f.hasHit && f.cancelTicks > 0 && f.moveId) {
+    f.cancelTicks--;
+    const cur = def.moves[f.moveId];
+    const intent = intentFor(f, def, me, w, f.arc ? 'air' : readCommand(f.input, f.facing).down ? 'crouch' : 'stand');
+    const next = intent?.type === 'move' ? def.moves[intent.moveId] : undefined;
+    if (cur && intent && next && cancelAllowed(cur, next)) {
+      startIntent(f, def, intent, me, events);
+      return;
+    }
   }
   advance(f, def, me, events);
   // A fighter that just became free (landing, end of stun, getting up) turns to face the opponent
   // before reading its controls, so "back" and attacks point the right way after a cross-up.
   if (isActionable(f) && f.y === 0 && f.arc === null && f.x !== opp.x) f.facing = opp.x > f.x ? 1 : -1;
   if (isActionable(f)) {
-    if (active) decide(f, def, opp, oppDef);
+    if (active) decide(f, def, opp, oppDef, me, events, w);
     else setAction(f, 'idle');
   } else if (active && f.action === 'air' && !f.airAttackUsed) {
-    const press = readCommand(f.input, f.facing).press;
-    if (press) {
-      startAttack(f, normalMoveId('air', press));
+    const intent = intentFor(f, def, me, w, 'air');
+    if (intent) {
+      startIntent(f, def, intent, me, events);
       f.airAttackUsed = true;
     }
   }
