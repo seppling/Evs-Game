@@ -1,6 +1,6 @@
-import { STAGE_WIDTH, SUB } from './constants';
-import { applyContact } from './combat';
-import { currentFrame, hurtboxes } from './fighter';
+import { METER_GAIN, METER_MAX, STAGE_WIDTH, SUB } from './constants';
+import { applyContact, attackMisses } from './combat';
+import { hurtboxes } from './fighter';
 import { overlapCenter, overlaps, worldBox } from './geometry';
 import type { World } from './tick';
 import type { Defs, FighterState, GameEvent, MoveId, PlayerIndex, ProjectileDef, ProjectileState, WorldBox } from './types';
@@ -37,7 +37,15 @@ export function updateProjectiles(w: World, defs: Defs, active: boolean, events:
     p.x += p.vx;
     p.ticksLeft--;
   }
-  removeWhere(ps, (p) => p.ticksLeft <= 0 || p.x < 0 || p.x > STAGE_WIDTH * SUB);
+  const missed = (p: ProjectileState) => {
+    const owner = w.fs[p.owner];
+    owner.meter = Math.min(METER_MAX, owner.meter + METER_GAIN.specialWhiff);
+  };
+  removeWhere(ps, (p) => {
+    const out = p.ticksLeft <= 0 || p.x < 0 || p.x > STAGE_WIDTH * SUB;
+    if (out && p.hitsLeft === defOf(p, defs).hits) missed(p);
+    return out;
+  });
 
   const gone = new Set<ProjectileState>();
   for (let i = 0; i < ps.length; i++) {
@@ -56,18 +64,19 @@ export function updateProjectiles(w: World, defs: Defs, active: boolean, events:
       }
     }
   }
+  for (const p of gone) missed(p);
   removeWhere(ps, (p) => gone.has(p));
   if (!active) return;
 
   for (const p of [...ps]) {
     const di = (1 - p.owner) as PlayerIndex;
     const d = w.fs[di], dDef = defs[di];
-    if (currentFrame(d, dDef)?.flags?.includes('projectileInvuln')) continue;
+    const move = defs[p.owner].moves[p.moveId]!;
+    if (attackMisses(d, dDef, move.hit.level, true)) continue;
     const P = boxOf(p, defs);
     for (const hb of hurtboxes(d, dDef)) {
       const H = worldBox(hb, d.x, d.y, d.facing);
       if (!overlaps(P, H)) continue;
-      const move = defs[p.owner].moves[p.moveId]!;
       applyContact(w, defs, { att: p.owner, hit: move.hit, kind: move.kind, easy: p.easy, at: overlapCenter(P, H), projectile: true, group: 0 }, events);
       p.hitsLeft--;
       break;

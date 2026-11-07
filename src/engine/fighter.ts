@@ -72,14 +72,14 @@ function firstActiveTick(m: MoveDef): number {
   return -1;
 }
 
-const INVULNERABLE: ReadonlySet<Action> = new Set(['knockdown', 'down', 'getup', 'airReset', 'intro', 'win', 'lose']);
+const INVULNERABLE: ReadonlySet<Action> = new Set(['knockdown', 'down', 'getup', 'airReset', 'intro', 'win', 'lose', 'thrown', 'throwing']);
 const STANCE_HELD: ReadonlySet<Action> = new Set(['guard', 'hitstun', 'blockstun']);
 const TIMED: ReadonlySet<Action> = new Set(['hitstun', 'blockstun', 'landing']);
 
 export function hurtboxes(f: FighterState, def: FighterDef): Box[] {
   if (INVULNERABLE.has(f.action)) return [];
   if (f.action === 'attack') return currentFrame(f, def)?.hurtboxes ?? def.standingHurtboxes;
-  if (f.action === 'crouch' || (STANCE_HELD.has(f.action) && f.crouching)) return def.crouchingHurtboxes;
+  if (f.action === 'crouch' || f.action === 'landing' || (STANCE_HELD.has(f.action) && f.crouching)) return def.crouchingHurtboxes;
   if (f.action === 'air') return def.airHurtboxes;
   return def.standingHurtboxes;
 }
@@ -137,7 +137,8 @@ function gainMeter(f: FighterState, amount: number): void {
 /** A special that ends without ever connecting still earns a little meter. */
 function endMove(f: FighterState, def: FighterDef): void {
   const move = f.moveId ? def.moves[f.moveId] : undefined;
-  if (move?.kind === 'special' && !f.hasHit) gainMeter(f, METER_GAIN.specialWhiff);
+  // A projectile special is judged by its projectile instead (see projectiles.ts).
+  if (move?.kind === 'special' && !f.hasHit && !move.projectile) gainMeter(f, METER_GAIN.specialWhiff);
   f.moveId = null;
 }
 
@@ -276,6 +277,12 @@ export function updateFighter(f: FighterState, def: FighterDef, opp: FighterStat
     }
   }
   advance(f, def, me, events, w);
+  // A combo ends when the defender is free again (or lying down).
+  if (isActionable(f) || f.action === 'down') {
+    f.comboHits = 0;
+    f.comboDamage = 0;
+    f.dizzyUsed = false;
+  }
   // A fighter that just became free (landing, end of stun, getting up) turns to face the opponent
   // before reading its controls, so "back" and attacks point the right way after a cross-up.
   if (isActionable(f) && f.y === 0 && f.arc === null && f.x !== opp.x) f.facing = opp.x > f.x ? 1 : -1;
