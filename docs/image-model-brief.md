@@ -21,7 +21,7 @@ Every image you make will be cut out and played back as **animation frames**. So
   2. the **Image rules** (section 4)
   3. the fighter's **Character description** (section 6), followed **word for word**
   4. the **Pose** for that file name (section 5, or the fighter's own move table in section 6), adjusted by the fighter's **Flavor notes**
-- If I attach a **reference image**, it is the final authority on how the fighter looks. Match it exactly.
+- If I attach a **reference image**, it is the final authority on how the fighter looks. Match it exactly. Each fighter's approved reference sheet is in the repository at `docs/art/reference/<fighter-folder>.png`. Ignore the name label at its top: never draw text.
 - After each image, reply with **one short line**: the file name to save it as, and the next file name in the order (section 8). For example: *"Save as `mohawk-man/idle_01.png`. Next: `idle_02`."*
 - If I say **"next"**, generate that next file.
 - If I say **"redo"**, generate the same image again. Fix only what I point out and change nothing else.
@@ -200,7 +200,7 @@ Each fighter has their own move table in section 6.
 ### Spin Kicker
 - **Folder:** `spin-kicker`
 - **Background:** green #00FF00 (she wears purple)
-- **Character description:** Spin Kicker, a slim, athletic gymnast woman in her thirties with a long dark ponytail tied with a silver band. She wears a sparkling purple-and-silver gymnastics leotard with a star pattern, white wrist tape, and white gymnastics slippers. Focused, confident expression.
+- **Character description:** Spin Kicker, a slim, athletic gymnast woman in her thirties with a long dark-brown ponytail tied with a silver band. She wears a full-length purple gymnastics bodysuit with silver stripes and small white stars, white wristbands, and white sneakers. Focused, confident expression.
 - **Body:** slim, athletic, medium height.
 - **Flavor notes:** her kicks look like gymnastics: very high leg extensions, pointed toes, splits and flips.
 - **Intro:** both arms raised overhead like finishing a routine. **Win 1:** the same salute, beaming. **Win 2:** doing the splits on the ground, arms raised.
@@ -223,7 +223,7 @@ Each fighter has their own move table in section 6.
 ### Flip Spin Crawler
 - **Folder:** `flip-spin-crawler`
 - **Background:** magenta #FF00FF
-- **Character description:** Flip Spin Crawler, a lean, wiry kung fu fighter in his twenties whose hair is made of living orange-and-yellow flames streaming upward. He wears a black sleeveless kung fu outfit with orange trim, an orange sash, and black cloth shoes. Sharp, mischievous grin.
+- **Character description:** Flip Spin Crawler, a lean, wiry kung fu fighter in his twenties whose hair is made of living orange-and-yellow flames streaming upward. He wears a black sleeveless kung fu top with orange trim, an orange sash, baggy black kung fu trousers, black wrist wraps, orange socks and black shoes. Sharp, mischievous grin.
 - **Body:** lean and wiry, medium height, usually low to the ground.
 - **Flavor notes:** his stance is low and wide, almost spider-like, with one hand near the floor. He moves like a spider.
 - **Intro:** his flaming hair blazing up big. **Win 1:** balancing upside down on one hand. **Win 2:** crouched and grinning, hair blazing.
@@ -246,7 +246,7 @@ Each fighter has their own move table in section 6.
 ### Weight Kicker
 - **Folder:** `weight-kicker`
 - **Background:** magenta #FF00FF
-- **Character description:** Weight Kicker, a stocky, muscular kickboxer in his twenties with short spiky blue-black hair and glowing electric-blue eyes. Heavy iron weights are strapped around both ankles. He wears a navy-blue sleeveless training top, navy kickboxing shorts with an electric-blue stripe, and wrapped hands. A glowing electric-blue lightning-shaped scar runs down his left arm. Calm, cocky smirk.
+- **Character description:** Weight Kicker, a stocky, muscular kickboxer in his twenties with short spiky blue-black hair and glowing electric-blue eyes. Heavy dark-iron weights are strapped around both ankles. He wears a navy-blue sleeveless training top, navy kickboxing shorts with an electric-blue stripe, white hand wraps, and black-and-white high-top sneakers. A glowing electric-blue lightning-shaped scar runs down his left arm. Calm, cocky smirk.
 - **Body:** stocky and muscular, medium height.
 - **Flavor notes:** his kicks are slow, heavy and powerful. His punches are quick and short.
 - **Intro:** lifting one weighted leg and stomping it down. **Win 1:** leaning back casually, hands behind his head. **Win 2:** holding a high kick, perfectly balanced.
