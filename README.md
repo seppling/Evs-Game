@@ -18,9 +18,35 @@ An original 2D fighting game for friends and family, in the spirit of early-90s 
 | Move / jump / crouch | D-pad or left stick | W A S D | Arrow keys |
 | Light / Medium / Heavy Punch | X / Y / RB | U / I / O | Numpad 4 / 5 / 6 |
 | Light / Medium / Heavy Kick | A / B / RT | J / K / L | Numpad 1 / 2 / 3 |
+| Throw (same as Light Punch + Light Kick) | LT | H | Numpad 0 |
+| Easy Special | LB | Y | Numpad 7 |
 | Start | Start | Enter | Numpad Enter |
 
-Hold **away** from your opponent to block. Crouch-block (down-away) stops low attacks; stand-block stops jumping attacks. Special moves, throws, supers and Easy mode arrive in the next milestone.
+Hold **away** from your opponent to block. Crouch-block (down-away) stops low attacks; stand-block stops jumping attacks and overheads.
+
+### Moves
+
+Inputs are written for a fighter facing right (↓↘→ = quarter-circle forward). **P** = any punch, **K** = any kick; Light, Medium and Heavy change speed, distance and damage.
+
+| Fighter | Move | Input | Easy mode |
+|---|---|---|---|
+| Mohawk Man | Karate Wave (fireball, one at a time) | ↓↘→ + P | Special |
+| | Mohawk Ram (headfirst charge) | ↓↙← + P | Special + → |
+| | Rising Chop (anti-air, invincible start) | →↓↘ + P | Special + ↓ |
+| | **Super:** Thousand Chops | ↓↘→↓↘→ + P | Special + Heavy |
+| Spin Kicker | Tornado Kick (several hits) | ↓↘→ + K | Special |
+| | Cartwheel (passes through fireballs) | ↓↙← + K | Special + → |
+| | Handspring Heel (overhead: block standing) | →↓↘ + K | Special + ↓ |
+| | **Super:** Human Tornado | ↓↘→↓↘→ + K | Special + Heavy |
+
+- **Supers** need a full meter (the blue bar at the bottom). It fills as you attack and as you take damage, and it carries over between rounds.
+- **Throws:** Light Punch + Light Kick together when close (hold back to throw backwards). Press the same to break a throw right after you're grabbed: "ESCAPE!".
+- **Combos:** light attacks chain into each other, and light and medium attacks cancel into specials when they connect. Damage scales down the longer a combo goes.
+- **Dizzy:** take too many hits quickly and your fighter sees stars. Mash buttons and wiggle the stick to recover sooner.
+
+### Easy mode
+
+On the title screen, each player can press their **Special** button (LB / Y / Numpad 7) to turn Easy mode on or off. In Easy mode, Special plus a direction fires a special move and Special + a Heavy button fires the super. The regular inputs still work too. Easy-mode specials do 85% damage, so it stays fair.
 
 ## Development
 
@@ -37,6 +63,7 @@ npm run e2e         # browser smoke test (Playwright)
 - `p1`, `p2`: `mohawk-man` or `spin-kicker`
 - `time`: round timer in seconds, 1–99, or `none`
 - `rounds`: round wins needed, 1–3
+- `easy`: `1`, `2` or `12` turns on Easy mode for those players
 
 Anything invalid falls back to the default.
 

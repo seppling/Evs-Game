@@ -18,13 +18,14 @@ export function parseSetup(search: string): Setup {
     return v !== null && FIGHTER_IDS.includes(v) ? v : fallback;
   };
   const time = q.get('time');
+  const easy = q.get('easy');
   return {
     p1: fighter('p1', 'mohawk-man'),
     p2: fighter('p2', 'spin-kicker'),
     config: {
       roundsToWin: intInRange(q.get('rounds'), 1, 3) ?? DEFAULT_CONFIG.roundsToWin,
       roundSeconds: time === 'none' ? null : intInRange(time, 1, 99) ?? DEFAULT_CONFIG.roundSeconds,
-      easy: [false, false],
+      easy: easy === '1' ? [true, false] : easy === '2' ? [false, true] : easy === '12' ? [true, true] : [false, false],
       easyDamage: DEFAULT_CONFIG.easyDamage,
     },
   };

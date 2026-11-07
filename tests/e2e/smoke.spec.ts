@@ -16,3 +16,17 @@ test('boots, starts a match, moves P1, finishes a timed round, no errors', async
   await expect.poll(() => page.evaluate(() => (window as any).__evs.state().roundsPlayed), { timeout: 10000 }).toBeGreaterThanOrEqual(1);
   expect(errors).toEqual([]);
 });
+
+test('a keyboard quarter-circle + punch throws a Karate Wave', async ({ page }) => {
+  const errors: string[] = [];
+  page.on('pageerror', (e) => errors.push(String(e)));
+  await page.goto('/?time=none');
+  await page.keyboard.press('Enter');
+  await expect.poll(() => page.evaluate(() => (window as any).__evs.state()?.phase), { timeout: 5000 }).toBe('fight');
+  await page.keyboard.down('KeyS'); await page.waitForTimeout(40);
+  await page.keyboard.down('KeyD'); await page.waitForTimeout(40);
+  await page.keyboard.up('KeyS'); await page.waitForTimeout(40);
+  await page.keyboard.press('KeyU'); await page.keyboard.up('KeyD');
+  await expect.poll(() => page.evaluate(() => (window as any).__evs.state().projectiles.length), { timeout: 2000 }).toBe(1);
+  expect(errors).toEqual([]);
+});

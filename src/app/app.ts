@@ -6,6 +6,7 @@ import { DeviceManager, type GamepadLike } from '../input/devices';
 import { Renderer } from '../render/renderer';
 import { advanceClock } from './clock';
 import type { Setup } from './setup';
+import { specialEdges } from './title';
 
 export type AppMode = 'title' | 'match' | 'paused';
 
@@ -21,9 +22,12 @@ export class App {
   private debug = false;
   private pauseLines: string[] = [];
   private tickTimes: number[] = [];
+  private easy: [boolean, boolean];
+  private prevButtons: [number, number] = [0, 0];
 
   constructor(canvas: HTMLCanvasElement, private readonly win: Window, private readonly setup: Setup) {
     this.defs = [getFighter(setup.p1)!, getFighter(setup.p2)!];
+    this.easy = [...setup.config.easy] as [boolean, boolean];
     this.devices = new DeviceManager(win, () => this.readPads());
     this.renderer = new Renderer(canvas);
     const resize = () => this.renderer.resize(win.innerWidth, win.innerHeight, win.devicePixelRatio || 1);
@@ -57,7 +61,7 @@ export class App {
   }
 
   start(): void {
-    this.state = createMatch(this.defs, this.setup.config);
+    this.state = createMatch(this.defs, { ...this.setup.config, easy: [...this.easy] as [boolean, boolean] });
     this.mode = 'match';
     this.acc = 0;
   }
@@ -86,8 +90,11 @@ export class App {
     // A Start that just joined a controller only joins; the next Start (or Enter / click) begins.
     const go = poll.startPressed && poll.joined.length === 0;
     if (this.mode === 'title') {
+      // Each player's Special button toggles their Easy mode.
+      specialEdges(this.prevButtons, poll.inputs).forEach((edge, i) => { if (edge) this.easy[i] = !this.easy[i]; });
+      this.prevButtons = [poll.inputs[0].buttons, poll.inputs[1].buttons];
       if (go) this.start();
-      else return this.renderer.drawTitle(this.joinedLabels());
+      else return this.renderer.drawTitle(this.joinedLabels(), this.easy);
     }
 
     if (this.mode === 'match' && poll.disconnected.length > 0) {

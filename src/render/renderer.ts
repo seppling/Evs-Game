@@ -222,7 +222,7 @@ export class Renderer {
     ctx.restore();
   }
 
-  drawTitle(joined: readonly [string, string]): void {
+  drawTitle(joined: readonly [string, string], easy: readonly [boolean, boolean] = [false, false]): void {
     const ctx = this.begin();
     const bg = ctx.createLinearGradient(0, 0, 0, CAMERA_HEIGHT);
     bg.addColorStop(0, '#1a1033');
@@ -240,10 +240,12 @@ export class Renderer {
     ctx.fillText('EVS-GAME', 640, 230);
     ctx.fillStyle = '#fff';
     ctx.font = 'bold 34px system-ui, sans-serif';
-    ctx.fillText('Controllers: press Start to join', 640, 390);
+    ctx.fillText('Controllers: press Start to join', 640, 380);
     ctx.font = '26px system-ui, sans-serif';
-    ctx.fillText('Then press Start again (or Enter, or click) to fight!', 640, 440);
-    ctx.fillText(`P1: ${joined[0]}     P2: ${joined[1]}`, 640, 510);
+    ctx.fillText('Special button (LB / Y / Numpad 7): toggle Easy mode', 640, 425);
+    ctx.fillText('Then press Start again (or Enter, or click) to fight!', 640, 465);
+    const label = (i: 0 | 1) => `P${i + 1}: ${joined[i]}${easy[i] ? ' · EASY' : ''}`;
+    ctx.fillText(`${label(0)}     ${label(1)}`, 640, 530);
   }
 
   /** A dark band with centered lines, drawn over whatever is on screen. */
