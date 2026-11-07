@@ -1,14 +1,27 @@
-import { SIZE_SCALE } from '../engine/constants';
-import type { Box, FighterDef, HitLevel, MoveDef, MoveFrame, MoveId, Stance, Strength } from '../engine/types';
+import { SIZE_SCALE, THROW } from '../engine/constants';
+import { normalMoveId, strengthMoveId } from '../engine/moves';
+import type { Box, FighterDef, HitLevel, HitProps, MoveDef, MoveFlag, MoveFrame, MoveId, ProjectileDef, Stance, Strength } from '../engine/types';
+import type { Motion } from '../input/motions';
 import { BUTTONS, type Button } from '../input/types';
 
+export { normalMoveId };
+
 /** Everything a fighter file provides; boxes and normals come from the shared template. */
-export type FighterBase = Omit<FighterDef, 'pushbox' | 'airPushbox' | 'standingHurtboxes' | 'crouchingHurtboxes' | 'airHurtboxes' | 'moves'>;
+export type FighterBase = Omit<FighterDef,
+  'pushbox' | 'airPushbox' | 'standingHurtboxes' | 'crouchingHurtboxes' | 'airHurtboxes' | 'moves' | 'specialSlots'>;
 
-const PREFIX: Record<Stance, string> = { stand: 'stand', crouch: 'crouch', air: 'jump' };
+/** One frame of a special move, authored for a medium fighter; the builder scales it and adds hurtboxes. */
+export interface SpecialFrameSpec {
+  sprite: string; ticks: number; body: Stance; hitbox?: Box; hitGroup?: number; hit?: Partial<HitProps>;
+  velocity?: { x: number; y: number }; flags?: MoveFlag[]; leap?: { height: number; duration: number; forward: number };
+  spawnProjectile?: boolean;
+}
 
-export function normalMoveId(stance: Stance, button: Button): MoveId {
-  return `${PREFIX[stance]}-${button.toLowerCase()}`;
+export interface SpecialSpec {
+  id: string; name: string; kind: 'special' | 'super'; motion: Motion; group: 'P' | 'K';
+  build(strength: Strength): {
+    frames: SpecialFrameSpec[]; hit: Omit<HitProps, 'chip' | 'meterGain' | 'strength'>; landing?: number; projectile?: ProjectileDef;
+  };
 }
 
 // ---- Template boxes for a medium (300-unit) fighter. By convention, stance lists are [body, head].
@@ -68,6 +81,13 @@ function stanceBoxes(stance: Stance, s: number): Box[] {
   return (stance === 'stand' ? STANDING : stance === 'crouch' ? CROUCHING : AIR).map((bx) => scaleBox(bx, s));
 }
 
+function normalCancels(stance: Stance, button: Button, strength: Strength): MoveDef['cancels'] {
+  if (stance === 'air') return [];
+  if (strength === 'light') return ['special', 'super', 'chain'];
+  if (strength === 'medium' || (stance === 'stand' && button === 'HP')) return ['special', 'super'];
+  return [];
+}
+
 function buildNormal(stance: Stance, button: Button, s: number): MoveDef {
   const strength = BUTTON_STRENGTH[button];
   const sd = STRENGTH[strength];
@@ -85,6 +105,8 @@ function buildNormal(stance: Stance, button: Button, s: number): MoveDef {
     { sprite: `${spec.sprite}${recoverySprite}`, ticks: recovery, hurtboxes: [...body, limb] },
   ];
   return {
+    kind: 'normal',
+    name: normalMoveId(stance, button),
     input: { button, stance },
     frames,
     hit: {
@@ -92,15 +114,78 @@ function buildNormal(stance: Stance, button: Button, s: number): MoveDef {
       pushback: isAir ? sd.pushback[1] : sd.pushback[0], level: spec.level, knockdown: spec.knockdown,
       meterGain: sd.meterGain, strength,
     },
+    cancels: normalCancels(stance, button, strength),
+  };
+}
+
+function buildThrow(back: boolean, s: number): MoveDef {
+  const body = stanceBoxes('stand', s);
+  return {
+    kind: 'throw',
+    name: back ? 'throw-back' : 'throw-forward',
+    input: { stance: 'stand', button: 'LP' },
+    frames: [
+      { sprite: 'throw_01', ticks: THROW.startup, hurtboxes: body },
+      { sprite: 'throw_01', ticks: THROW.whiffRecovery, hurtboxes: body },
+    ],
+    hit: {
+      damage: THROW.damage, chip: 0, stun: 0, hitstun: 0, blockstun: 0, hitstop: 0, pushback: 0,
+      level: 'mid', knockdown: true, meterGain: 0, strength: 'heavy',
+    },
     cancels: [],
   };
 }
 
-export function buildFighter(base: FighterBase, overrides: Record<MoveId, MoveDef> = {}): FighterDef {
+const GROUP_BUTTONS: Record<'P' | 'K', Record<Strength, Button>> = {
+  P: { light: 'LP', medium: 'MP', heavy: 'HP' },
+  K: { light: 'LK', medium: 'MK', heavy: 'HK' },
+};
+
+function buildSpecialMove(spec: SpecialSpec, strength: Strength, s: number): MoveDef {
+  const built = spec.build(strength);
+  const frames: MoveFrame[] = built.frames.map((f) => {
+    const hitbox = f.hitbox ? scaleBox(f.hitbox, s) : undefined;
+    const body = stanceBoxes(f.body, s);
+    const frame: MoveFrame = {
+      sprite: f.sprite, ticks: f.ticks,
+      hurtboxes: hitbox ? [...body, { x: hitbox.x, y: hitbox.y, w: Math.max(1, hitbox.w - 15), h: hitbox.h }] : body,
+    };
+    if (hitbox) frame.hitbox = hitbox;
+    if (f.hitGroup !== undefined) frame.hitGroup = f.hitGroup;
+    if (f.hit) frame.hit = f.hit.damage !== undefined ? { ...f.hit, chip: Math.trunc(f.hit.damage / 4) } : { ...f.hit };
+    if (f.velocity) frame.velocity = { ...f.velocity };
+    if (f.flags) frame.flags = [...f.flags];
+    if (f.leap) frame.leap = { ...f.leap, height: Math.round(f.leap.height * s) };
+    if (f.spawnProjectile) frame.spawnProjectile = true;
+    return frame;
+  });
+  const move: MoveDef = {
+    kind: spec.kind,
+    name: spec.name,
+    input: { stance: 'stand', motion: spec.motion, button: spec.kind === 'super' ? spec.group : GROUP_BUTTONS[spec.group][strength] },
+    frames,
+    hit: { ...built.hit, chip: Math.trunc(built.hit.damage / 4), meterGain: 0, strength },
+    cancels: spec.kind === 'special' ? ['super'] : [],
+  };
+  if (built.landing !== undefined) move.landing = built.landing;
+  if (built.projectile) {
+    const p = built.projectile;
+    move.projectile = { ...p, spawn: { x: Math.round(p.spawn.x * s), y: Math.round(p.spawn.y * s) }, hitbox: scaleBox(p.hitbox, s) };
+  }
+  return move;
+}
+
+export function buildFighter(base: FighterBase, specialSlots: string[] = [], specials: SpecialSpec[] = []): FighterDef {
   const s = SIZE_SCALE[base.size];
   const moves: Record<MoveId, MoveDef> = {};
   for (const stance of ['stand', 'crouch', 'air'] as const) {
     for (const button of BUTTONS) moves[normalMoveId(stance, button)] = buildNormal(stance, button, s);
+  }
+  moves['throw-forward'] = buildThrow(false, s);
+  moves['throw-back'] = buildThrow(true, s);
+  for (const spec of specials) {
+    if (spec.kind === 'super') moves['super'] = buildSpecialMove(spec, 'heavy', s);
+    else for (const st of ['light', 'medium', 'heavy'] as const) moves[strengthMoveId(spec.id, st)] = buildSpecialMove(spec, st, s);
   }
   return {
     ...base,
@@ -109,6 +194,7 @@ export function buildFighter(base: FighterBase, overrides: Record<MoveId, MoveDe
     standingHurtboxes: stanceBoxes('stand', s),
     crouchingHurtboxes: stanceBoxes('crouch', s),
     airHurtboxes: stanceBoxes('air', s),
-    moves: { ...moves, ...overrides },
+    moves,
+    specialSlots: [...specialSlots],
   };
 }

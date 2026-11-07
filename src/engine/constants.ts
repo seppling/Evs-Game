@@ -21,3 +21,16 @@ export const ROUND_INTRO_TICKS = 120;
 export const KO_SLOWMO_TICKS = 90;
 export const KO_SLOWMO_FACTOR = 3;
 export const ROUND_END_TICKS = 150;
+
+// ---- M2: combat systems
+export const CANCEL_WINDOW_TICKS = 3;
+export const METER_MAX = 1000;
+export const SUPER_FREEZE_TICKS = 30;
+export const CHIP_PERCENT = 25;
+export const EASY_DAMAGE_PERCENT = 85;
+export const METER_GAIN = { specialHit: 100, specialBlock: 50, specialWhiff: 30, damageTakenPercent: 50 } as const;
+export const THROW = {
+  range: 70, startup: 3, whiffRecovery: 20, escapeWindow: 7, hitTick: 20, duration: 30, damage: 120, breakPush: 40, behind: 80,
+} as const;
+export const THROW_PROTECT_TICKS = 6;
+export const STUN = { drainDelay: 60, drainPerTick: 4, dizzyTicks: 120, mashTicks: 3 } as const;

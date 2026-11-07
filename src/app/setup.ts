@@ -24,6 +24,8 @@ export function parseSetup(search: string): Setup {
     config: {
       roundsToWin: intInRange(q.get('rounds'), 1, 3) ?? DEFAULT_CONFIG.roundsToWin,
       roundSeconds: time === 'none' ? null : intInRange(time, 1, 99) ?? DEFAULT_CONFIG.roundSeconds,
+      easy: [false, false],
+      easyDamage: DEFAULT_CONFIG.easyDamage,
     },
   };
 }

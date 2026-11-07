@@ -1,4 +1,4 @@
-import { normalMoveId } from '../fighters/defaults';
+import { normalMoveId } from './moves';
 import { BUTTONS } from '../input/types';
 import type { Box, FighterDef } from './types';
 
@@ -29,9 +29,16 @@ export function validateFighter(def: FighterDef): string[] {
       if (!def.moves[id]) err(`missing normal move ${id}`);
     }
   }
+  for (const slot of def.specialSlots) {
+    for (const st of ['light', 'medium', 'heavy']) if (!def.moves[`${slot}-${st}`]) err(`special slot ${slot} is missing move ${slot}-${st}`);
+  }
+  const sup = def.moves['super'];
+  if (!sup || sup.kind !== 'super' || sup.input.motion !== 'qcf2') err('missing a super move (kind super, motion qcf2)');
   for (const [id, move] of Object.entries(def.moves)) {
     if (move.frames.length === 0) { err(`move ${id} has no frames`); continue; }
-    if (!move.frames.some((f) => f.hitbox)) err(`move ${id} has no frame with a hitbox`);
+    if (move.kind !== 'throw' && !move.projectile && !move.frames.some((f) => f.hitbox)) err(`move ${id} has no frame with a hitbox`);
+    if (move.frames.some((f) => f.spawnProjectile) && !move.projectile) err(`move ${id} spawns a projectile but has no projectile definition`);
+    if ((move.kind === 'special' || move.kind === 'super') && !move.input.motion) err(`move ${id} is a ${move.kind} without a motion`);
     if (move.hit.damage < 0) err(`move ${id} has negative damage`);
     move.frames.forEach((f, i) => {
       if (!posInt(f.ticks)) err(`move ${id} frame ${i} ticks must be a positive integer (got ${f.ticks})`);

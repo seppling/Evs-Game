@@ -1,5 +1,5 @@
 import { clearPresses, emptyInputState, readCommand } from '../input/commands';
-import { normalMoveId } from '../fighters/defaults';
+import { normalMoveId } from './moves';
 import { KNOCKDOWN, PREJUMP_TICKS, PROXIMITY_GUARD_RANGE, SUB } from './constants';
 import { arcY } from './geometry';
 import type { Action, Box, Facing, FighterDef, FighterState, GameEvent, MoveDef, MoveFrame, MoveId, PlayerIndex } from './types';
@@ -10,6 +10,8 @@ export function createFighter(def: FighterDef, x: number, facing: Facing): Fight
     moveId: null, hasHit: false, airAttackUsed: false, jumpDir: 0, arc: null,
     crouching: false, stunTicks: 0, hitstop: 0, push: null,
     health: def.health, ko: false, roundsWon: 0, input: emptyInputState(),
+    hitGroups: 0, cancelTicks: 0, easyMove: false, meter: 0, stun: 0, stunIdle: 0,
+    dizzyPending: false, dizzyUsed: false, comboHits: 0, comboDamage: 0, throwProtect: 0, throwBack: false,
   };
 }
 

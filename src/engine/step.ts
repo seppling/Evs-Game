@@ -2,7 +2,7 @@ import type { RawInput } from '../input/types';
 import { KO_SLOWMO_FACTOR, KO_SLOWMO_TICKS, ROUND_END_TICKS, ROUND_INTRO_TICKS, TICKS_PER_SECOND } from './constants';
 import { isActionable } from './fighter';
 import { startNextRound } from './match';
-import { tickFighters } from './tick';
+import { tickWorld, type World } from './tick';
 import type { Defs, GameEvent, MatchState, Phase, PlayerIndex, RoundResult } from './types';
 
 function enter(s: MatchState, phase: Phase): void {
@@ -41,11 +41,12 @@ function timeUpResult(s: MatchState, defs: Defs): RoundResult {
 export function step(state: MatchState, inputs: readonly [RawInput, RawInput], defs: Defs): { state: MatchState; events: GameEvent[] } {
   const s = structuredClone(state);
   const events: GameEvent[] = [];
+  const w: World = { fs: s.fighters, projectiles: s.projectiles, easy: s.config.easy, easyDamage: s.config.easyDamage };
   s.tick++;
   switch (s.phase) {
     case 'intro': {
       if (s.phaseTick === 0) events.push({ type: 'roundStart', round: s.round });
-      tickFighters(s.fighters, inputs, defs, false, events);
+      tickWorld(w, inputs, defs, false, events);
       s.phaseTick++;
       if (s.phaseTick >= ROUND_INTRO_TICKS) {
         enter(s, 'fight');
@@ -55,7 +56,7 @@ export function step(state: MatchState, inputs: readonly [RawInput, RawInput], d
       break;
     }
     case 'fight': {
-      tickFighters(s.fighters, inputs, defs, true, events);
+      tickWorld(w, inputs, defs, true, events);
       s.phaseTick++;
       const kos = ([0, 1] as const).filter((i) => s.fighters[i].ko);
       if (kos.length > 0) {
@@ -82,13 +83,13 @@ export function step(state: MatchState, inputs: readonly [RawInput, RawInput], d
       break;
     }
     case 'ko': {
-      if (s.phaseTick % KO_SLOWMO_FACTOR === 0) tickFighters(s.fighters, inputs, defs, false, events);
+      if (s.phaseTick % KO_SLOWMO_FACTOR === 0) tickWorld(w, inputs, defs, false, events);
       s.phaseTick++;
       if (s.phaseTick >= KO_SLOWMO_TICKS) enterRoundEnd(s, defs, events);
       break;
     }
     case 'roundEnd': {
-      tickFighters(s.fighters, inputs, defs, false, events);
+      tickWorld(w, inputs, defs, false, events);
       strikePoses(s);
       s.phaseTick++;
       if (s.phaseTick >= ROUND_END_TICKS) {
@@ -104,7 +105,7 @@ export function step(state: MatchState, inputs: readonly [RawInput, RawInput], d
       break;
     }
     case 'matchEnd': {
-      tickFighters(s.fighters, inputs, defs, false, events);
+      tickWorld(w, inputs, defs, false, events);
       strikePoses(s);
       s.phaseTick++;
       break;
