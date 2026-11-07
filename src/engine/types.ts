@@ -83,6 +83,8 @@ export interface FighterState {
 
 export interface ProjectileState {
   owner: PlayerIndex; moveId: MoveId; x: number; y: number; vx: number; facing: Facing; ticksLeft: number; hitsLeft: number;
+  /** Thrown with an Easy-mode special (deals Easy damage). */
+  easy: boolean;
 }
 
 export type Phase = 'intro' | 'fight' | 'ko' | 'roundEnd' | 'matchEnd';

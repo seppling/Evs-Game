@@ -3,6 +3,7 @@ import { effectiveHit } from './moves';
 import { KNOCKDOWN, METER_GAIN, METER_MAX, PREJUMP_TICKS, PROXIMITY_GUARD_RANGE, SUB } from './constants';
 import { arcY } from './geometry';
 import { resolveIntent, type Intent } from './intent';
+import { hasProjectile, spawnProjectile } from './projectiles';
 import type { World } from './tick';
 import type { Action, Box, Facing, FighterDef, FighterState, GameEvent, HitProps, MoveDef, MoveFrame, MoveId, MoveKind, PlayerIndex } from './types';
 
@@ -147,7 +148,7 @@ function startIntent(f: FighterState, def: FighterDef, intent: Intent, me: Playe
 
 function intentFor(f: FighterState, def: FighterDef, me: PlayerIndex, w: World, stance: 'stand' | 'crouch' | 'air'): Intent | null {
   return resolveIntent(f.input, {
-    def, stance, meter: f.meter, hasProjectile: w.projectiles.some((p) => p.owner === me),
+    def, stance, meter: f.meter, hasProjectile: hasProjectile(w, me),
     easy: w.easy[me], throwInRange: false,
   });
 }
@@ -181,7 +182,7 @@ function land(f: FighterState, def: FighterDef, me: PlayerIndex, events: GameEve
 }
 
 /** Advances timers, arcs and timed transitions by one tick. */
-function advance(f: FighterState, def: FighterDef, me: PlayerIndex, events: GameEvent[]): void {
+function advance(f: FighterState, def: FighterDef, me: PlayerIndex, events: GameEvent[], w: World): void {
   f.actionTick++;
   if (f.arc) {
     const arc = f.arc;
@@ -205,6 +206,9 @@ function advance(f: FighterState, def: FighterDef, me: PlayerIndex, events: Game
       if (f.actionTick === at.start && at.frame.leap) {
         const { height, duration, forward } = at.frame.leap;
         f.arc = { t: 0, duration, height, startY: f.y, vx: forward * f.facing || 0 };
+      }
+      if (f.actionTick === at.start && at.frame.spawnProjectile && move.projectile && f.moveId) {
+        spawnProjectile(w, me, f, f.moveId, move.projectile);
       }
       if (at.frame.velocity) f.x += at.frame.velocity.x * f.facing;
     }
@@ -271,7 +275,7 @@ export function updateFighter(f: FighterState, def: FighterDef, opp: FighterStat
       return;
     }
   }
-  advance(f, def, me, events);
+  advance(f, def, me, events, w);
   // A fighter that just became free (landing, end of stun, getting up) turns to face the opponent
   // before reading its controls, so "back" and attacks point the right way after a cross-up.
   if (isActionable(f) && f.y === 0 && f.arc === null && f.x !== opp.x) f.facing = opp.x > f.x ? 1 : -1;

@@ -1,6 +1,7 @@
 import { pushInput } from '../input/commands';
 import type { RawInput } from '../input/types';
 import { resolveHits } from './combat';
+import { updateProjectiles } from './projectiles';
 import { updateFighter } from './fighter';
 import { applyPushback, faceEachOther, separate } from './space';
 import type { Defs, FighterState, GameEvent, ProjectileState } from './types';
@@ -23,6 +24,7 @@ export function tickWorld(w: World, inputs: readonly [RawInput, RawInput], defs:
   updateFighter(fs[1], defs[1], fs[0], defs[0], 1, active, events, w);
   applyPushback(fs, defs);
   separate(fs, defs, prevX);
-  if (active) resolveHits(fs, defs, events);
+  updateProjectiles(w, defs, active, events);
+  if (active) resolveHits(w, defs, events);
   faceEachOther(fs);
 }

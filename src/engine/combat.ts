@@ -2,6 +2,7 @@ import { readCommand } from '../input/commands';
 import { AIR_RESET, CANCEL_WINDOW_TICKS, KNOCKDOWN, PUSHBACK_TICKS, SUB } from './constants';
 import { activeHit, hurtboxes, setAction } from './fighter';
 import { overlapCenter, overlaps, worldBox } from './geometry';
+import type { World } from './tick';
 import type { Defs, Facing, FighterState, GameEvent, HitLevel, HitProps, MoveDef, MoveKind, PlayerIndex } from './types';
 
 const BLOCKABLE = new Set(['idle', 'walkForward', 'walkBack', 'crouch', 'guard', 'blockstun']);
@@ -31,15 +32,21 @@ function wasCrouching(d: FighterState, defenderMove: MoveDef | undefined): boole
   return d.action === 'crouch' || d.crouching || (d.action === 'attack' && defenderMove?.input.stance === 'crouch');
 }
 
-interface Contact { att: PlayerIndex; hit: HitProps; kind: MoveKind; group: number; at: { x: number; y: number } }
+export interface Contact {
+  att: PlayerIndex; hit: HitProps; kind: MoveKind; easy: boolean; at: { x: number; y: number }; projectile: boolean; group: number;
+}
 
-function apply(fs: [FighterState, FighterState], defs: Defs, c: Contact, events: GameEvent[]): void {
+/** Applies one hit or block, from a fighter's attack or a projectile. */
+export function applyContact(w: World, defs: Defs, c: Contact, events: GameEvent[]): void {
+  const fs = w.fs;
   const a = fs[c.att], di = (1 - c.att) as PlayerIndex, d = fs[di];
   const hit = c.hit;
-  a.hasHit = true;
-  a.hitGroups |= 1 << c.group;
-  a.cancelTicks = CANCEL_WINDOW_TICKS;
-  a.hitstop = hit.hitstop;
+  if (!c.projectile) {
+    a.hasHit = true;
+    a.hitGroups |= 1 << c.group;
+    a.cancelTicks = CANCEL_WINDOW_TICKS;
+    a.hitstop = hit.hitstop;
+  }
   d.hitstop = hit.hitstop;
   const away: Facing = Math.sign(d.x - a.x) === -1 ? -1 : Math.sign(d.x - a.x) === 1 ? 1 : a.facing;
   const push = { perTick: away * Math.trunc((hit.pushback * SUB) / PUSHBACK_TICKS), ticks: PUSHBACK_TICKS };
@@ -82,7 +89,8 @@ function apply(fs: [FighterState, FighterState], defs: Defs, c: Contact, events:
 }
 
 /** Finds every hitbox/hurtbox contact this tick (both directions first, so trades work), then applies them. */
-export function resolveHits(fs: [FighterState, FighterState], defs: Defs, events: GameEvent[]): void {
+export function resolveHits(w: World, defs: Defs, events: GameEvent[]): void {
+  const fs = w.fs;
   const contacts: Contact[] = [];
   for (const i of [0, 1] as const) {
     const a = fs[i], d = fs[1 - i]!;
@@ -93,10 +101,10 @@ export function resolveHits(fs: [FighterState, FighterState], defs: Defs, events
     for (const box of hurtboxes(d, defs[1 - i]!)) {
       const H = worldBox(box, d.x, d.y, d.facing);
       if (overlaps(W, H)) {
-        contacts.push({ att: i, hit: ah.hit, kind: ah.kind, group: ah.group, at: overlapCenter(W, H) });
+        contacts.push({ att: i, hit: ah.hit, kind: ah.kind, easy: a.easyMove, group: ah.group, at: overlapCenter(W, H), projectile: false });
         break;
       }
     }
   }
-  for (const c of contacts) apply(fs, defs, c, events);
+  for (const c of contacts) applyContact(w, defs, c, events);
 }
