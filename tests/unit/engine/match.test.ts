@@ -82,3 +82,31 @@ test('determinism: the same input script gives identical states', () => {
   expect(a).toEqual(b);
   expect(JSON.parse(a[a.length - 1]!)).toEqual(JSON.parse(b[b.length - 1]!));
 });
+
+test('super freeze: 30 ticks with no movement and no timer', () => {
+  let s = toFight(createMatch(defs)); s.fighters[0].meter = 1000;
+  for (const d of [2, 3, 6, 2, 3]) s = run(s, 1, raw(d)).state;
+  s = run(s, 1, raw(6, 'LP')).state;
+  expect(s.freeze).toMatchObject({ ticks: 30, player: 0, name: 'Thousand Chops' });
+  const timer = s.timer, at = s.fighters[0].actionTick, timerTicks = s.timerTicks;
+  s = run(s, 29).state;
+  expect(s.timer).toBe(timer); expect(s.timerTicks).toBe(timerTicks); expect(s.fighters[0].actionTick).toBe(at);
+  s = run(s, 1).state; expect(s.freeze).toBeNull();
+});
+test('meter carries into the next round and resets for a new match', () => {
+  let s = toFight(createMatch(defs)); s.fighters[0].meter = 700; s.fighters[1].health = 1; s.fighters[0].x = 90000; s.fighters[1].x = 98000;
+  s = run(run(s, 1, raw(5, 'LP')).state, 5 + 90 + 150).state;
+  expect(s.round).toBe(2); expect(s.fighters[0].meter).toBe(740);
+  expect(createMatch(defs).fighters[0].meter).toBe(0);
+});
+test('REVIEW FOCUS: a projectile in flight at KO cannot hit and is gone next round', () => {
+  let s = toFight(createMatch(defs)); s.fighters[0].x = 40000; s.fighters[1].x = 120000; s.fighters[1].health = 1;
+  for (const d of [2, 3]) s = run(s, 1, raw(d)).state;
+  s = run(s, 1, raw(6, 'LP')).state; s = run(s, 13).state;
+  expect(s.projectiles).toHaveLength(1);
+  s.fighters[0].health = 0; s.fighters[0].ko = true; s = run(s, 1).state;
+  expect(s.phase).toBe('ko'); s = run(s, 89).state; expect(s.fighters[1].health).toBe(1);
+  // A long-lived, motionless projectile left on screen must still be gone when round 2 starts.
+  s.projectiles.push({ owner: 0, moveId: 'karate-wave-light', x: 100000, y: 16800, vx: 0, facing: 1, ticksLeft: 999, hitsLeft: 1, easy: false });
+  s = run(s, 1 + 150).state; expect(s.round).toBe(2); expect(s.projectiles).toHaveLength(0);
+});

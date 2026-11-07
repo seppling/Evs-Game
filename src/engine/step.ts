@@ -1,5 +1,5 @@
 import type { RawInput } from '../input/types';
-import { KO_SLOWMO_FACTOR, KO_SLOWMO_TICKS, ROUND_END_TICKS, ROUND_INTRO_TICKS, TICKS_PER_SECOND } from './constants';
+import { KO_SLOWMO_FACTOR, KO_SLOWMO_TICKS, ROUND_END_TICKS, ROUND_INTRO_TICKS, SUPER_FREEZE_TICKS, TICKS_PER_SECOND } from './constants';
 import { isActionable } from './fighter';
 import { startNextRound } from './match';
 import { tickWorld, type World } from './tick';
@@ -56,8 +56,15 @@ export function step(state: MatchState, inputs: readonly [RawInput, RawInput], d
       break;
     }
     case 'fight': {
+      // Super flash: everything (fighters, projectiles, timer) waits.
+      if (s.freeze) {
+        s.freeze.ticks--;
+        if (s.freeze.ticks <= 0) s.freeze = null;
+        break;
+      }
       tickWorld(w, inputs, defs, true, events);
       s.phaseTick++;
+      for (const e of events) if (e.type === 'superFlash') s.freeze = { ticks: SUPER_FREEZE_TICKS, player: e.player, name: e.name };
       const kos = ([0, 1] as const).filter((i) => s.fighters[i].ko);
       if (kos.length > 0) {
         s.roundResult = kos.length === 2 ? 'draw' : (kos[0] === 0 ? 1 : 0);

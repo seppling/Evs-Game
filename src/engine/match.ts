@@ -32,6 +32,8 @@ export function startNextRound(s: MatchState, defs: Defs): void {
   s.roundResult = null;
   s.roundEndReason = null;
   s.perfect = false;
+  s.projectiles.length = 0;
+  s.freeze = null;
   s.phase = 'intro';
   s.phaseTick = 0;
 }

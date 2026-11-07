@@ -20,10 +20,10 @@ export function createFighter(def: FighterDef, x: number, facing: Facing): Fight
   };
 }
 
-/** Puts a fighter back at the start of a round. Keeps roundsWon. */
+/** Puts a fighter back at the start of a round. Keeps roundsWon and the super meter. */
 export function resetForRound(f: FighterState, def: FighterDef, x: number, facing: Facing): void {
-  const roundsWon = f.roundsWon;
-  Object.assign(f, createFighter(def, x, facing), { roundsWon, action: 'intro' as Action });
+  const { roundsWon, meter } = f;
+  Object.assign(f, createFighter(def, x, facing), { roundsWon, meter, action: 'intro' as Action });
 }
 
 export function currentFrame(f: FighterState, def: FighterDef): MoveFrame | null {
