@@ -27,3 +27,8 @@ test('reference prompt and sizes', () => {
   expect(referencePrompt(b, 'mohawk-man')).toMatch(/front view/); expect(referencePrompt(b, 'mohawk-man')).toContain(m.description);
   expect(sizeFor('reference-candidate-2')).toBe('1536x1024'); expect(sizeFor('idle_01')).toBe('1024x1024');
 });
+test('no prompt asks for the old background color', () => {
+  for (const p of [referencePrompt(b, 'mohawk-man'), framePrompt(b, 'mohawk-man', 'portrait'), framePrompt(b, 'mohawk-man', 'karate-wave-fx_01')]) {
+    expect(p).not.toMatch(/fighter's background color/); expect(p).toMatch(/transparent/);
+  }
+});

@@ -14,6 +14,9 @@ function fighterOf(b: Brief, id: string): FighterBrief {
 
 const base = (file: string) => file.replace(/_\d{2}$/, '');
 
+/** The brief's image-type rules mention the old flat background color; generation asks for transparency instead. */
+const transparent = (rules: string[]) => rules.join(' ').replace(/on the fighter's background color/g, 'on a fully transparent background');
+
 /** Every file to generate for a fighter, in the brief's work order (section 8), ending with the portrait. */
 export function workOrder(b: Brief, fighter: string): string[] {
   const f = fighterOf(b, fighter);
@@ -38,12 +41,12 @@ export function framePrompt(b: Brief, fighter: string, file: string, note?: stri
   const f = fighterOf(b, fighter);
   const lines = [`STYLE: ${b.style.join(' ')}`, `IMAGE RULES: ${imageRules(b)}`, SAME_CHARACTER, `CHARACTER: ${f.description}`];
   if (file === 'portrait') {
-    lines.push(`PORTRAIT: ${b.special.portrait.join(' ')}`);
+    lines.push(`PORTRAIT: ${transparent(b.special.portrait)}`);
   } else {
     const entry = [...b.frames, ...f.moves].find((m) => m.file === file);
     if (!entry) throw new Error(`unknown file "${file}" for ${f.name}`);
     if (/-fx_\d{2}$/.test(file)) {
-      lines.push(`EFFECT IMAGE: ${b.special.effect.join(' ')} Object: ${entry.pose}`);
+      lines.push(`EFFECT IMAGE: ${transparent(b.special.effect)} Object: ${entry.pose}`);
     } else {
       const pose = file === 'intro_01' ? f.intro : file === 'win_01' ? f.win1 : file === 'win_02' ? f.win2 : entry.pose;
       lines.push(`BODY: ${f.body}`, `FLAVOR: ${f.flavor}`, `POSE (${file}): ${pose}`);
@@ -58,7 +61,7 @@ export function referencePrompt(b: Brief, fighter: string): string {
   const f = fighterOf(b, fighter);
   return [
     `STYLE: ${b.style.join(' ')}`,
-    `REFERENCE SHEET: ${b.special.reference.join(' ')}`,
+    `REFERENCE SHEET: ${transparent(b.special.reference)}`,
     'Use the attached picture as the design to follow.',
     `CHARACTER: ${f.description}`,
     `BODY: ${f.body}`,
