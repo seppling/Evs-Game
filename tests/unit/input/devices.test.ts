@@ -1,5 +1,5 @@
 import { expect, test } from 'vitest';
-import { DeviceManager, Keyboard, mergeInputs, P1_KEYS, PadAssigner, readGamepad, readKeyboard, type GamepadLike } from '../../../src/input/devices';
+import { DeviceManager, Keyboard, mergeInputs, P1_KEYS, P2_KEYS, PadAssigner, readGamepad, readKeyboard, type GamepadLike } from '../../../src/input/devices';
 import { btn, NEUTRAL } from '../../../src/input/types';
 
 function pad(index: number, pressed: number[], axes: number[] = [0, 0], connected = true): GamepadLike {
@@ -84,4 +84,9 @@ test('REVIEW: poll reports players who joined this poll, so a joining Start is n
   pads = [pad(0, [])]; expect(d.poll().joined).toEqual([]);
   pads = [pad(0, [9])]; const again = d.poll();
   expect(again.joined).toEqual([]); expect(again.startPressed).toBe(true);
+});
+test('LB is Special and LT is Throw on a pad', () => expect(readGamepad(pad(0, [4, 6])).buttons).toBe(btn('SPECIAL', 'THROW')));
+test('keyboard Y/H and Numpad7/Numpad0 are Special/Throw', () => {
+  expect(readKeyboard(new Set(['KeyY', 'KeyH']), P1_KEYS).buttons).toBe(btn('SPECIAL', 'THROW'));
+  expect(readKeyboard(new Set(['Numpad7', 'Numpad0']), P2_KEYS).buttons).toBe(btn('SPECIAL', 'THROW'));
 });

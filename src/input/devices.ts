@@ -1,5 +1,5 @@
 import type { PlayerIndex } from '../engine/types';
-import { BUTTONS, btn, type Button, type RawInput } from './types';
+import { INPUT_BUTTONS, btn, type InputButton, type RawInput } from './types';
 
 /** The parts of the browser Gamepad this game reads (structurally compatible with Gamepad). */
 export interface GamepadLike {
@@ -7,19 +7,19 @@ export interface GamepadLike {
   buttons: readonly { pressed: boolean; value: number }[]; axes: readonly number[];
 }
 
-export interface KeyLayout { up: string; down: string; left: string; right: string; start: string; buttons: Record<Button, string> }
+export interface KeyLayout { up: string; down: string; left: string; right: string; start: string; buttons: Record<InputButton, string> }
 
 export const P1_KEYS: KeyLayout = {
   up: 'KeyW', down: 'KeyS', left: 'KeyA', right: 'KeyD', start: 'Enter',
-  buttons: { LP: 'KeyU', MP: 'KeyI', HP: 'KeyO', LK: 'KeyJ', MK: 'KeyK', HK: 'KeyL' },
+  buttons: { LP: 'KeyU', MP: 'KeyI', HP: 'KeyO', LK: 'KeyJ', MK: 'KeyK', HK: 'KeyL', SPECIAL: 'KeyY', THROW: 'KeyH' },
 };
 export const P2_KEYS: KeyLayout = {
   up: 'ArrowUp', down: 'ArrowDown', left: 'ArrowLeft', right: 'ArrowRight', start: 'NumpadEnter',
-  buttons: { LP: 'Numpad4', MP: 'Numpad5', HP: 'Numpad6', LK: 'Numpad1', MK: 'Numpad2', HK: 'Numpad3' },
+  buttons: { LP: 'Numpad4', MP: 'Numpad5', HP: 'Numpad6', LK: 'Numpad1', MK: 'Numpad2', HK: 'Numpad3', SPECIAL: 'Numpad7', THROW: 'Numpad0' },
 };
 
 /** Standard Gamepad mapping indices. */
-export const PAD_BUTTONS: Record<Button | 'start', number> = { LP: 2, MP: 3, HP: 5, LK: 0, MK: 1, HK: 7, start: 9 };
+export const PAD_BUTTONS: Record<InputButton | 'start', number> = { LP: 2, MP: 3, HP: 5, LK: 0, MK: 1, HK: 7, SPECIAL: 4, THROW: 6, start: 9 };
 const DPAD = { up: 12, down: 13, left: 14, right: 15 } as const;
 const STICK_DEAD_ZONE = 0.5;
 
@@ -32,7 +32,7 @@ function padDown(pad: GamepadLike, index: number): boolean {
 
 export function readGamepad(pad: GamepadLike): RawInput {
   let buttons = 0;
-  for (const b of BUTTONS) if (padDown(pad, PAD_BUTTONS[b])) buttons |= btn(b);
+  for (const b of INPUT_BUTTONS) if (padDown(pad, PAD_BUTTONS[b])) buttons |= btn(b);
   const ax = pad.axes[0] ?? 0, ay = pad.axes[1] ?? 0;
   const stickX = ax > STICK_DEAD_ZONE ? 1 : ax < -STICK_DEAD_ZONE ? -1 : 0;
   const stickY = ay < -STICK_DEAD_ZONE ? 1 : ay > STICK_DEAD_ZONE ? -1 : 0;
@@ -44,7 +44,7 @@ export function readGamepad(pad: GamepadLike): RawInput {
 /** Opposite directions held together cancel to neutral. */
 export function readKeyboard(down: ReadonlySet<string>, layout: KeyLayout): RawInput {
   let buttons = 0;
-  for (const b of BUTTONS) if (down.has(layout.buttons[b])) buttons |= btn(b);
+  for (const b of INPUT_BUTTONS) if (down.has(layout.buttons[b])) buttons |= btn(b);
   const x = sign((down.has(layout.right) ? 1 : 0) - (down.has(layout.left) ? 1 : 0));
   const y = sign((down.has(layout.up) ? 1 : 0) - (down.has(layout.down) ? 1 : 0));
   return { x, y, buttons, start: down.has(layout.start) };
