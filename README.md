@@ -5,8 +5,8 @@ An original 2D fighting game for friends and family, in the spirit of early-90s 
 ## How to play
 
 1. Open the game link (GitHub Pages, see below), or run it locally with `npm run dev`.
-2. Press **Enter** or click to start.
-3. Each player presses **Start** on their controller to join. The first controller to press Start is Player 1.
+2. On the title screen, each player presses **Start** on their controller to join. The first controller to join is Player 1. (Players on the keyboard don't need to join.)
+3. Press **Start** again (or **Enter**, or click) to fight.
 4. After a match, press **Start** for a rematch.
 
 **Keys:** **F1** shows hitboxes and frame info. **F** toggles fullscreen (between rounds). The game pauses if the tab is hidden or a controller is unplugged; press Start to carry on.

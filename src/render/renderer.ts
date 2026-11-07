@@ -163,9 +163,9 @@ export class Renderer {
     ctx.fillText('EVS-GAME', 640, 230);
     ctx.fillStyle = '#fff';
     ctx.font = 'bold 34px system-ui, sans-serif';
-    ctx.fillText('Press Enter or click to start', 640, 400);
-    ctx.font = '24px system-ui, sans-serif';
-    ctx.fillText('Players: press Start on your controller to join', 640, 450);
+    ctx.fillText('Controllers: press Start to join', 640, 390);
+    ctx.font = '26px system-ui, sans-serif';
+    ctx.fillText('Then press Start again (or Enter, or click) to fight!', 640, 440);
     ctx.fillText(`P1: ${joined[0]}     P2: ${joined[1]}`, 640, 510);
   }
 

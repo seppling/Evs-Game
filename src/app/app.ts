@@ -83,8 +83,10 @@ export class App {
     this.lastNow = now;
     const poll = this.devices.poll();
 
+    // A Start that just joined a controller only joins; the next Start (or Enter / click) begins.
+    const go = poll.startPressed && poll.joined.length === 0;
     if (this.mode === 'title') {
-      if (poll.startPressed) this.start();
+      if (go) this.start();
       else return this.renderer.drawTitle(this.joinedLabels());
     }
 
@@ -94,7 +96,7 @@ export class App {
 
     if (this.mode === 'paused') {
       const visible = this.win.document.visibilityState !== 'hidden';
-      if (poll.startPressed && poll.disconnected.length === 0 && visible) {
+      if (go && poll.disconnected.length === 0 && visible) {
         this.mode = 'match';
         this.acc = 0;
       } else {
@@ -105,7 +107,7 @@ export class App {
     }
 
     if (!this.state) return;
-    if (this.state.phase === 'matchEnd' && poll.startPressed) this.start();
+    if (this.state.phase === 'matchEnd' && go) this.start();
     const { ticks, accMs } = advanceClock(this.acc, elapsed);
     this.acc = accMs;
     for (let i = 0; i < ticks; i++) {

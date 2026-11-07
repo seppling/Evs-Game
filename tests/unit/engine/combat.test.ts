@@ -77,3 +77,11 @@ test('cannot block while attacking', () => {
   const c = close(); setAttack(c.fs[1], 'stand-hk', 20); press(c, 5, 'LP', raw(6)); tickN(c, 4, raw(), raw(6));
   expect(c.fs[1].health).toBe(920);
 });
+
+test('REVIEW: getting up after being crossed over, holding away from the attacker blocks', () => {
+  const c = fightPair('mohawk-man', 'spin-kicker', 1100, 1000);
+  c.fs[1].facing = -1; c.fs[1].action = 'getup'; c.fs[1].actionTick = 19;
+  setAttack(c.fs[0], 'stand-lp', 3);
+  tickN(c, 1, raw(), raw(4));
+  expect(c.fs[1]).toMatchObject({ health: 950, action: 'blockstun' });
+});

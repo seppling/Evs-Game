@@ -184,6 +184,9 @@ export function updateFighter(f: FighterState, def: FighterDef, opp: FighterStat
     return;
   }
   advance(f, def, me, events);
+  // A fighter that just became free (landing, end of stun, getting up) turns to face the opponent
+  // before reading its controls, so "back" and attacks point the right way after a cross-up.
+  if (isActionable(f) && f.y === 0 && f.arc === null && f.x !== opp.x) f.facing = opp.x > f.x ? 1 : -1;
   if (isActionable(f)) {
     if (active) decide(f, def, opp, oppDef);
     else setAction(f, 'idle');

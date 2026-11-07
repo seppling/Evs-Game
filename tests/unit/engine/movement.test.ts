@@ -51,3 +51,31 @@ test('cameraX centers on the midpoint and clamps', () => {
   expect(cameraX(fightPair('mohawk-man', 'spin-kicker', 900, 1100).fs)).toBe(360);
   expect(cameraX(fightPair('mohawk-man', 'spin-kicker', 40, 300).fs)).toBe(0);
 });
+
+// ---- Final review fixes ----
+test('REVIEW: a press on the landing tick of a cross-up attacks toward the opponent', () => {
+  const c = fightPair('mohawk-man', 'spin-kicker', 900, 1000);
+  tickN(c, 1, raw(9)); tickN(c, 46); tickN(c, 1, raw(5, 'LP'));
+  expect(c.fs[0]).toMatchObject({ moveId: 'stand-lp', facing: -1 });
+});
+test('REVIEW: holding up-forward through a cross-up turns the fighter around on landing', () => {
+  const c = fightPair('mohawk-man', 'spin-kicker', 900, 1000);
+  tickN(c, 1, raw(9)); tickN(c, 47, raw(9));
+  expect(c.fs[0].x).toBeGreaterThan(c.fs[1].x);
+  expect(c.fs[0].facing).toBe(-1);
+});
+test('REVIEW: a cornered fighter keeps the corner when a narrower fighter jumps in (left wall)', () => {
+  const c = fightPair('mohawk-man', 'spin-kicker', 32, 160); tickN(c, 1, raw(5), raw(7)); tickN(c, 80);
+  expect(c.fs[0].x).toBe(stageBounds(c.defs[0]).min);
+  expect(c.fs[1].x).toBeGreaterThan(c.fs[0].x);
+});
+test('REVIEW: a cornered fighter keeps the corner when a narrower fighter jumps in (right wall)', () => {
+  const c = fightPair('mohawk-man', 'spin-kicker', 1888, 1760); tickN(c, 1, raw(5), raw(9)); tickN(c, 80);
+  expect(c.fs[0].x).toBe(stageBounds(c.defs[0]).max);
+  expect(c.fs[1].x).toBeLessThan(c.fs[0].x);
+});
+test('REVIEW: a cornered narrow fighter keeps the corner when a wider fighter jumps in', () => {
+  const c = fightPair('mohawk-man', 'spin-kicker', 160, 30); tickN(c, 1, raw(7)); tickN(c, 80);
+  expect(c.fs[1].x).toBe(stageBounds(c.defs[1]).min);
+  expect(c.fs[0].x).toBeGreaterThan(c.fs[1].x);
+});

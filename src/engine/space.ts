@@ -36,6 +36,8 @@ export function separate(fs: [FighterState, FighterState], defs: Defs, prevX: [n
     }
   }
 
+  keepCornerOwner(fs, defs);
+
   const [a, b] = fs;
   const A = pushWorldBox(a, defs[0]);
   const B = pushWorldBox(b, defs[1]);
@@ -59,6 +61,26 @@ export function separate(fs: [FighterState, FighterState], defs: Defs, prevX: [n
   if (b.x !== bx) a.x += dirA * Math.abs(bx - b.x);
   clamp(a, defs[0]);
   clamp(b, defs[1]);
+}
+
+/**
+ * A grounded fighter standing at a wall owns that side: the other fighter is kept on the open side,
+ * so a narrower fighter cannot jump in behind them and steal the corner. If both are grounded at the
+ * same wall, the one nearer the wall owns it.
+ */
+function keepCornerOwner(fs: [FighterState, FighterState], defs: Defs): void {
+  const grounded = (f: FighterState) => f.y === 0 && f.arc === null;
+  for (const side of [-1, 1] as const) {
+    const atWall = ([0, 1] as const).filter((i) => {
+      const f = fs[i], bounds = stageBounds(defs[i]);
+      return grounded(f) && (side === -1 ? f.x <= bounds.min : f.x >= bounds.max);
+    });
+    if (atWall.length === 0) continue;
+    const owner = atWall.length === 1 ? atWall[0]! : (fs[0].x - fs[1].x) * side >= 0 ? 0 : 1;
+    const f = fs[owner], other = fs[1 - owner]!;
+    if (side === -1 && other.x <= f.x) other.x = f.x + 1;
+    if (side === 1 && other.x >= f.x) other.x = f.x - 1;
+  }
 }
 
 /** Slides fighters that were hit or blocked. If a wall or max separation stops the defender, the attacker slides instead. */

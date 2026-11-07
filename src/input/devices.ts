@@ -143,9 +143,12 @@ export class DeviceManager {
 
   get padSlots(): readonly [number | null, number | null] { return this.assigner.slots; }
 
-  poll(): { inputs: [RawInput, RawInput]; startPressed: boolean; disconnected: PlayerIndex[] } {
+  /** `joined` lists players whose controller was assigned by this poll's Start press. */
+  poll(): { inputs: [RawInput, RawInput]; startPressed: boolean; disconnected: PlayerIndex[]; joined: PlayerIndex[] } {
     const pads = this.getPads();
+    const before = [...this.assigner.slots];
     this.assigner.update(pads);
+    const joined = ([0, 1] as const).filter((i) => this.assigner.slots[i] !== before[i]);
     const keys = this.keyboard.takeFrame();
     const read = (i: PlayerIndex): RawInput => {
       let r = readKeyboard(keys, i === 0 ? P1_KEYS : P2_KEYS);
@@ -158,6 +161,6 @@ export class DeviceManager {
     const startDown = inputs[0].start || inputs[1].start || pads.some((p) => !!p && p.connected && padDown(p, PAD_BUTTONS.start));
     const startPressed = startDown && !this.startWasDown;
     this.startWasDown = startDown;
-    return { inputs, startPressed, disconnected: this.assigner.disconnected() };
+    return { inputs, startPressed, disconnected: this.assigner.disconnected(), joined };
   }
 }

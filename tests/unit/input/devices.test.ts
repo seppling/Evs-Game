@@ -78,3 +78,10 @@ test('a key tapped between two polls still registers for exactly one poll', () =
   expect(second.startPressed).toBe(false);
   expect(second.inputs[0].buttons).toBe(0);
 });
+test('REVIEW: poll reports players who joined this poll, so a joining Start is not also a "go"', () => {
+  const t = new EventTarget(); let pads = [pad(0, [9])]; const d = new DeviceManager(t, () => pads);
+  expect(d.poll().joined).toEqual([0]);
+  pads = [pad(0, [])]; expect(d.poll().joined).toEqual([]);
+  pads = [pad(0, [9])]; const again = d.poll();
+  expect(again.joined).toEqual([]); expect(again.startPressed).toBe(true);
+});
