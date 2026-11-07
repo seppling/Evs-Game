@@ -2,9 +2,9 @@ import { CAMERA_HEIGHT, CAMERA_WIDTH, SUB } from '../engine/constants';
 import { activeHitbox, hurtboxes } from '../engine/fighter';
 import { worldBox } from '../engine/geometry';
 import { cameraX } from '../engine/space';
-import type { Box, Defs, FighterDef, FighterState, GameEvent, MatchState } from '../engine/types';
+import type { Box, Defs, FighterDef, FighterState, GameEvent, MatchState, ProjectileState } from '../engine/types';
 import { Effects } from './effects';
-import { drawHud, HealthTrail } from './hud';
+import { ComboDisplay, drawHud, HealthTrail } from './hud';
 import { placeholderShapes, type Shape } from './placeholder';
 import { computeViewport, FLOOR_Y, type Viewport } from './viewport';
 
@@ -15,6 +15,8 @@ export class Renderer {
   private vp: Viewport = computeViewport(CAMERA_WIDTH, CAMERA_HEIGHT, 1);
   private readonly effects = new Effects();
   private trails: [HealthTrail, HealthTrail] | null = null;
+  /** combos[i] = the combo player i is landing (read from the other fighter). */
+  private combos: [ComboDisplay, ComboDisplay] = [new ComboDisplay(), new ComboDisplay()];
   private lastTick = -1;
 
   constructor(private readonly canvas: HTMLCanvasElement) {
@@ -45,21 +47,47 @@ export class Renderer {
     const ctx = this.begin();
     if (!this.trails || s.tick < this.lastTick) {
       this.trails = [new HealthTrail(s.fighters[0].health), new HealthTrail(s.fighters[1].health)];
+      this.combos = [new ComboDisplay(), new ComboDisplay()];
       this.effects.clear();
       this.lastTick = s.tick;
     }
     const steps = Math.min(4, Math.max(0, s.tick - this.lastTick));
-    for (let i = 0; i < steps; i++) { this.trails[0].update(s.fighters[0].health); this.trails[1].update(s.fighters[1].health); }
+    for (let i = 0; i < steps; i++) {
+      this.trails[0].update(s.fighters[0].health);
+      this.trails[1].update(s.fighters[1].health);
+      this.combos[0].update(s.fighters[1].comboHits, s.fighters[1].comboDamage);
+      this.combos[1].update(s.fighters[0].comboHits, s.fighters[0].comboDamage);
+    }
     this.lastTick = s.tick;
 
     const camX = cameraX(s.fighters);
     this.drawStage(ctx, camX);
+    if (s.freeze) {
+      ctx.fillStyle = 'rgba(0,0,0,0.55)';
+      ctx.fillRect(0, 0, CAMERA_WIDTH, CAMERA_HEIGHT);
+    }
     for (const f of s.fighters) this.drawShadow(ctx, f, camX);
     // Draw the fighter who is attacking on top.
     const order = s.fighters[1].action === 'attack' ? [0, 1] : [1, 0];
     for (const i of order) this.drawFighter(ctx, s.fighters[i]!, defs[i]!, camX);
+    for (const p of s.projectiles) this.drawProjectile(ctx, p, defs, camX);
+    s.fighters.forEach((f, i) => { if (f.action === 'dizzy') this.drawDizzyStars(ctx, f, defs[i as 0 | 1], camX, s.tick); });
     this.effects.draw(ctx, camX);
-    drawHud(ctx, s, defs, [this.trails[0].value, this.trails[1].value]);
+    drawHud(ctx, s, defs, [this.trails[0].value, this.trails[1].value], [this.combos[0].shown, this.combos[1].shown]);
+    if (s.freeze) {
+      ctx.save();
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.font = 'bold 56px system-ui, sans-serif';
+      ctx.lineJoin = 'round';
+      ctx.lineWidth = 6;
+      ctx.strokeStyle = '#000';
+      ctx.fillStyle = '#ffd54f';
+      const text = `${defs[s.freeze.player].name.toUpperCase()}: ${s.freeze.name.toUpperCase()}`;
+      ctx.strokeText(text, 640, 200);
+      ctx.fillText(text, 640, 200);
+      ctx.restore();
+    }
     if (opts.debug) this.drawDebug(ctx, s, defs, camX, opts.tickRate);
   }
 
@@ -82,6 +110,55 @@ export class Renderer {
       ctx.lineTo(sx + (sx - CAMERA_WIDTH / 2) * 0.25, CAMERA_HEIGHT);
     }
     ctx.stroke();
+  }
+
+  private drawProjectile(ctx: CanvasRenderingContext2D, p: ProjectileState, defs: Defs, camX: number): void {
+    const def = defs[p.owner].moves[p.moveId]?.projectile;
+    if (!def) return;
+    const x = p.x / SUB - camX, y = FLOOR_Y - p.y / SUB;
+    const r = def.hitbox.w / 2;
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.scale(p.facing, 1);
+    if (def.visual === 'karate-wave') {
+      ctx.beginPath();
+      ctx.arc(-r * 0.4, 0, r, -Math.PI / 2.2, Math.PI / 2.2);
+      ctx.arc(-r * 0.9, 0, r * 0.85, Math.PI / 2.2, -Math.PI / 2.2, true);
+      ctx.closePath();
+      ctx.fillStyle = '#ffffff';
+      ctx.fill();
+      ctx.lineWidth = 5;
+      ctx.strokeStyle = '#e53935';
+      ctx.stroke();
+    } else {
+      ctx.beginPath();
+      ctx.arc(0, 0, r, 0, Math.PI * 2);
+      ctx.fillStyle = '#ffffff';
+      ctx.fill();
+    }
+    ctx.restore();
+  }
+
+  private drawDizzyStars(ctx: CanvasRenderingContext2D, f: FighterState, def: FighterDef, camX: number, tick: number): void {
+    const head = def.standingHurtboxes[1] ?? def.standingHurtboxes[0]!;
+    const cx = f.x / SUB - camX, cy = FLOOR_Y - (f.y / SUB + head.y + head.h + 20);
+    ctx.save();
+    ctx.fillStyle = '#ffeb3b';
+    ctx.strokeStyle = '#000';
+    ctx.lineWidth = 2;
+    for (let k = 0; k < 3; k++) {
+      const a = tick / 10 + (k * Math.PI * 2) / 3;
+      const sx = cx + Math.cos(a) * 34, sy = cy + Math.sin(a) * 8;
+      ctx.beginPath();
+      for (let p = 0; p < 10; p++) {
+        const rr = p % 2 === 0 ? 9 : 4, ang = (p * Math.PI) / 5 - Math.PI / 2;
+        ctx.lineTo(sx + Math.cos(ang) * rr, sy + Math.sin(ang) * rr);
+      }
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+    }
+    ctx.restore();
   }
 
   private drawShadow(ctx: CanvasRenderingContext2D, f: FighterState, camX: number): void {

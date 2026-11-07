@@ -1,6 +1,6 @@
 import { expect, test } from 'vitest';
 import { createMatch } from '../../../src/engine/match';
-import { announcerText, HealthTrail } from '../../../src/render/hud';
+import { announcerText, ComboDisplay, comboText, HealthTrail } from '../../../src/render/hud';
 import { placeholderShapes } from '../../../src/render/placeholder';
 import { computeViewport } from '../../../src/render/viewport';
 import { DEFS, fightPair, setAttack } from '../helpers';
@@ -49,4 +49,23 @@ test('health trail holds, then drains toward health', () => {
 });
 test('health trail snaps up when health rises (new round)', () => {
   const t = new HealthTrail(500); expect(t.update(1000)).toBe(1000);
+});
+
+test('comboText', () => {
+  expect(comboText(1)).toBeNull();
+  expect(comboText(2)).toEqual({ label: '2 HITS', shout: null });
+  expect(comboText(3)!.shout).toBe('NICE!'); expect(comboText(5)!.shout).toBe('GREAT!');
+  expect(comboText(7)!.shout).toBe('AWESOME!'); expect(comboText(12)!.shout).toBe('INCREDIBLE!');
+});
+test('ComboDisplay lingers 60 updates after the combo ends', () => {
+  const d = new ComboDisplay(); d.update(3, 150); d.update(0, 0); expect(d.shown).toEqual({ hits: 3, damage: 150 });
+  for (let i = 0; i < 59; i++) d.update(0, 0);
+  expect(d.shown).not.toBeNull(); d.update(0, 0); expect(d.shown).toBeNull();
+});
+test('ComboDisplay ignores single hits', () => {
+  const d = new ComboDisplay(); d.update(1, 30); expect(d.shown).toBeNull();
+});
+test('a thrown or landing fighter is still drawn', () => {
+  const { fs, defs } = fightPair();
+  for (const a of ['thrown', 'throwing', 'landing'] as const) { fs[1].action = a; expect(placeholderShapes(fs[1], defs[1]).length).toBeGreaterThan(0); }
 });
