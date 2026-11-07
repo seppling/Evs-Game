@@ -61,8 +61,25 @@ export function separate(fs: [FighterState, FighterState], defs: Defs, prevX: [n
   clamp(b, defs[1]);
 }
 
-/** Slides fighters that were hit or blocked (Task 7). */
-export function applyPushback(_fs: [FighterState, FighterState], _defs: Defs): void {}
+/** Slides fighters that were hit or blocked. If a wall or max separation stops the defender, the attacker slides instead. */
+export function applyPushback(fs: [FighterState, FighterState], defs: Defs): void {
+  for (const i of [0, 1] as const) {
+    const f = fs[i], other = fs[1 - i]!;
+    const push = f.push;
+    if (!push || f.hitstop > 0) continue;
+    const before = f.x;
+    f.x += push.perTick;
+    clamp(f, defs[i]);
+    if (Math.abs(f.x - other.x) > MAX_SEPARATION) f.x = other.x + Math.sign(f.x - other.x) * MAX_SEPARATION;
+    const blocked = push.perTick - (f.x - before);
+    if (blocked !== 0) {
+      other.x -= blocked;
+      clamp(other, defs[1 - i]!);
+    }
+    push.ticks--;
+    if (push.ticks <= 0) f.push = null;
+  }
+}
 
 export function faceEachOther(fs: [FighterState, FighterState]): void {
   for (const i of [0, 1] as const) {

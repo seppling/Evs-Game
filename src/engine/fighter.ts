@@ -1,6 +1,6 @@
 import { clearPresses, emptyInputState, readCommand } from '../input/commands';
 import { normalMoveId } from '../fighters/defaults';
-import { PREJUMP_TICKS } from './constants';
+import { KNOCKDOWN, PREJUMP_TICKS, PROXIMITY_GUARD_RANGE, SUB } from './constants';
 import { arcY } from './geometry';
 import type { Action, Box, Facing, FighterDef, FighterState, GameEvent, MoveDef, MoveFrame, MoveId, PlayerIndex } from './types';
 
@@ -66,11 +66,26 @@ export function isActionable(f: FighterState): boolean {
   return ACTIONABLE.has(f.action);
 }
 
-function setAction(f: FighterState, action: Action): void {
+/** Changes action (resetting actionTick only on a real change). Stance is kept only by stance-holding actions. */
+export function setAction(f: FighterState, action: Action): void {
   if (f.action !== action) {
     f.action = action;
     f.actionTick = 0;
   }
+  if (!STANCE_HELD.has(action)) f.crouching = action === 'crouch';
+}
+
+/** Is the opponent's attack in startup or active frames (not recovery)? */
+function attackIsThreatening(opp: FighterState, oppDef: FighterDef): boolean {
+  if (opp.action !== 'attack' || !opp.moveId) return false;
+  const move = oppDef.moves[opp.moveId];
+  if (!move) return false;
+  let lastHitboxEnd = 0, start = 0;
+  for (const fr of move.frames) {
+    start += fr.ticks;
+    if (fr.hitbox) lastHitboxEnd = start;
+  }
+  return opp.actionTick < lastHitboxEnd;
 }
 
 function startAttack(f: FighterState, moveId: MoveId): void {
@@ -89,7 +104,10 @@ function land(f: FighterState, me: PlayerIndex, events: GameEvent[]): void {
     events.push({ type: 'land', player: me });
   } else if (f.action === 'airReset') {
     setAction(f, 'idle');
+  } else if (f.action === 'knockdown') {
+    setAction(f, 'down');
   }
+  f.airAttackUsed = false;
 }
 
 /** Advances timers, arcs and timed transitions by one tick. */
@@ -115,6 +133,17 @@ function advance(f: FighterState, def: FighterDef, me: PlayerIndex, events: Game
       events.push({ type: 'swing', player: me, strength: move.hit.strength });
     }
   }
+  if (f.action === 'hitstun' || f.action === 'blockstun') {
+    f.stunTicks--;
+    if (f.stunTicks <= 0) {
+      f.stunTicks = 0;
+      setAction(f, 'idle');
+    }
+  } else if (f.action === 'down' && !f.ko && f.actionTick >= KNOCKDOWN.lieTicks) {
+    setAction(f, 'getup');
+  } else if (f.action === 'getup' && f.actionTick >= KNOCKDOWN.getupTicks) {
+    setAction(f, 'idle');
+  }
   if (f.action === 'prejump' && f.actionTick >= PREJUMP_TICKS) {
     setAction(f, 'air');
     f.arc = { t: 0, duration: def.jump.duration, height: def.jump.height, startY: 0, vx: f.jumpDir * f.facing * def.jump.forwardSpeed };
@@ -123,13 +152,17 @@ function advance(f: FighterState, def: FighterDef, me: PlayerIndex, events: Game
 }
 
 /** Chooses what an actionable fighter does this tick from its command. */
-function decide(f: FighterState, def: FighterDef): void {
+function decide(f: FighterState, def: FighterDef, opp: FighterState, oppDef: FighterDef): void {
   const cmd = readCommand(f.input, f.facing);
+  const threatened = cmd.back && attackIsThreatening(opp, oppDef) && Math.abs(opp.x - f.x) <= PROXIMITY_GUARD_RANGE * SUB;
   if (cmd.press) {
     startAttack(f, normalMoveId(cmd.down ? 'crouch' : 'stand', cmd.press));
   } else if (cmd.up) {
     setAction(f, 'prejump');
     f.jumpDir = cmd.forward ? 1 : cmd.back ? -1 : 0;
+  } else if (threatened) {
+    setAction(f, 'guard');
+    f.crouching = cmd.down;
   } else if (cmd.down) {
     setAction(f, 'crouch');
   } else if (cmd.forward) {
@@ -144,7 +177,7 @@ function decide(f: FighterState, def: FighterDef): void {
 }
 
 /** One tick for one fighter. `active` false means inputs are ignored (intro, KO, round end). */
-export function updateFighter(f: FighterState, def: FighterDef, _opp: FighterState, _oppDef: FighterDef,
+export function updateFighter(f: FighterState, def: FighterDef, opp: FighterState, oppDef: FighterDef,
   me: PlayerIndex, active: boolean, events: GameEvent[]): void {
   if (f.hitstop > 0) {
     f.hitstop--;
@@ -152,7 +185,7 @@ export function updateFighter(f: FighterState, def: FighterDef, _opp: FighterSta
   }
   advance(f, def, me, events);
   if (isActionable(f)) {
-    if (active) decide(f, def);
+    if (active) decide(f, def, opp, oppDef);
     else setAction(f, 'idle');
   } else if (active && f.action === 'air' && !f.airAttackUsed) {
     const press = readCommand(f.input, f.facing).press;

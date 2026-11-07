@@ -1,5 +1,6 @@
 import { pushInput } from '../input/commands';
 import type { RawInput } from '../input/types';
+import { resolveHits } from './combat';
 import { updateFighter } from './fighter';
 import { applyPushback, faceEachOther, separate } from './space';
 import type { Defs, FighterState, GameEvent } from './types';
@@ -14,5 +15,6 @@ export function tickFighters(fs: [FighterState, FighterState], inputs: readonly 
   updateFighter(fs[1], defs[1], fs[0], defs[0], 1, active, events);
   applyPushback(fs, defs);
   separate(fs, defs, prevX);
+  if (active) resolveHits(fs, defs, events);
   faceEachOther(fs);
 }
