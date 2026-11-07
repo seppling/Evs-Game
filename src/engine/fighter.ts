@@ -1,9 +1,10 @@
 import { clearPresses, emptyInputState, readCommand } from '../input/commands';
 import { effectiveHit } from './moves';
-import { KNOCKDOWN, METER_GAIN, METER_MAX, PREJUMP_TICKS, PROXIMITY_GUARD_RANGE, SUB } from './constants';
+import { KNOCKDOWN, METER_GAIN, METER_MAX, PREJUMP_TICKS, PROXIMITY_GUARD_RANGE, SUB, THROW_PROTECT_TICKS } from './constants';
 import { arcY } from './geometry';
 import { resolveIntent, type Intent } from './intent';
 import { hasProjectile, spawnProjectile } from './projectiles';
+import { inThrowRange, throwable } from './throws';
 import type { World } from './tick';
 import type { Action, Box, Facing, FighterDef, FighterState, GameEvent, HitProps, MoveDef, MoveFrame, MoveId, MoveKind, PlayerIndex } from './types';
 
@@ -147,10 +148,11 @@ function startIntent(f: FighterState, def: FighterDef, intent: Intent, me: Playe
   else startMove(f, def, intent.moveId, intent.easy, me, events);
 }
 
-function intentFor(f: FighterState, def: FighterDef, me: PlayerIndex, w: World, stance: 'stand' | 'crouch' | 'air'): Intent | null {
+function intentFor(f: FighterState, def: FighterDef, opp: FighterState, oppDef: FighterDef, me: PlayerIndex, w: World,
+  stance: 'stand' | 'crouch' | 'air'): Intent | null {
   return resolveIntent(f.input, {
     def, stance, meter: f.meter, hasProjectile: hasProjectile(w, me),
-    easy: w.easy[me], throwInRange: false,
+    easy: w.easy[me], throwInRange: inThrowRange(f, opp) && throwable(opp, oppDef),
   });
 }
 
@@ -218,11 +220,13 @@ function advance(f: FighterState, def: FighterDef, me: PlayerIndex, events: Game
     f.stunTicks--;
     if (f.stunTicks <= 0) {
       f.stunTicks = 0;
+      if (f.action !== 'landing') f.throwProtect = THROW_PROTECT_TICKS;
       setAction(f, 'idle');
     }
   } else if (f.action === 'down' && !f.ko && f.actionTick >= KNOCKDOWN.lieTicks) {
     setAction(f, 'getup');
   } else if (f.action === 'getup' && f.actionTick >= KNOCKDOWN.getupTicks) {
+    f.throwProtect = THROW_PROTECT_TICKS;
     setAction(f, 'idle');
   }
   if (f.action === 'prejump' && f.actionTick >= PREJUMP_TICKS) {
@@ -236,7 +240,7 @@ function advance(f: FighterState, def: FighterDef, me: PlayerIndex, events: Game
 function decide(f: FighterState, def: FighterDef, opp: FighterState, oppDef: FighterDef, me: PlayerIndex, events: GameEvent[], w: World): void {
   const cmd = readCommand(f.input, f.facing);
   const threatened = cmd.back && attackIsThreatening(opp, oppDef) && Math.abs(opp.x - f.x) <= PROXIMITY_GUARD_RANGE * SUB;
-  const intent = intentFor(f, def, me, w, cmd.down ? 'crouch' : 'stand');
+  const intent = intentFor(f, def, opp, oppDef, me, w, cmd.down ? 'crouch' : 'stand');
   if (intent) {
     startIntent(f, def, intent, me, events);
   } else if (cmd.up) {
@@ -261,6 +265,7 @@ function decide(f: FighterState, def: FighterDef, opp: FighterState, oppDef: Fig
 /** One tick for one fighter. `active` false means inputs are ignored (intro, KO, round end). */
 export function updateFighter(f: FighterState, def: FighterDef, opp: FighterState, oppDef: FighterDef,
   me: PlayerIndex, active: boolean, events: GameEvent[], w: World): void {
+  if (f.throwProtect > 0) f.throwProtect--;
   if (f.hitstop > 0) {
     f.hitstop--;
     return;
@@ -269,7 +274,7 @@ export function updateFighter(f: FighterState, def: FighterDef, opp: FighterStat
   if (active && f.action === 'attack' && f.hasHit && f.cancelTicks > 0 && f.moveId) {
     f.cancelTicks--;
     const cur = def.moves[f.moveId];
-    const intent = intentFor(f, def, me, w, f.arc ? 'air' : readCommand(f.input, f.facing).down ? 'crouch' : 'stand');
+    const intent = intentFor(f, def, opp, oppDef, me, w, f.arc ? 'air' : readCommand(f.input, f.facing).down ? 'crouch' : 'stand');
     const next = intent?.type === 'move' ? def.moves[intent.moveId] : undefined;
     if (cur && intent && next && cancelAllowed(cur, next)) {
       startIntent(f, def, intent, me, events);
@@ -290,7 +295,7 @@ export function updateFighter(f: FighterState, def: FighterDef, opp: FighterStat
     if (active) decide(f, def, opp, oppDef, me, events, w);
     else setAction(f, 'idle');
   } else if (active && f.action === 'air' && !f.airAttackUsed) {
-    const intent = intentFor(f, def, me, w, 'air');
+    const intent = intentFor(f, def, opp, oppDef, me, w, 'air');
     if (intent) {
       startIntent(f, def, intent, me, events);
       f.airAttackUsed = true;
